@@ -275,23 +275,52 @@ impl CacheStore {
         Ok(PutOutcome::Created)
     }
 
-    /// Streamed read straight from disk, 256 KiB chunks, no blocking-pool round trip per read.
+    /// Disk read with one blocking-pool hop for files up to the inline threshold (the common
+    /// case), a 256 KiB chunk stream above it.
     async fn get_fs(&self, root: &std::path::Path, hash: &str) -> Result<Option<GetResult>, StoreError> {
         let path = root.join(hash);
-        let file = match tokio::fs::File::open(&path).await {
-            Ok(f) => f,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(e) => return Err(io_err(e)),
-        };
-        let meta = file.metadata().await.map_err(io_err)?;
+        let inline = self.inline_threshold;
+        let read = tokio::task::spawn_blocking(
+            move || -> std::io::Result<Option<(std::fs::Metadata, Option<Vec<u8>>)>> {
+                let file = match std::fs::File::open(&path) {
+                    Ok(f) => f,
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                    Err(e) => return Err(e),
+                };
+                let meta = file.metadata()?;
+                if meta.len() <= inline {
+                    let mut buf = Vec::with_capacity(meta.len() as usize);
+                    std::io::Read::read_to_end(&mut &file, &mut buf)?;
+                    Ok(Some((meta, Some(buf))))
+                } else {
+                    Ok(Some((meta, None)))
+                }
+            },
+        )
+        .await
+        .map_err(|e| io_err(std::io::Error::other(e)))?
+        .map_err(io_err)?;
+        let Some((meta, data)) = read else { return Ok(None) };
         let size = meta.len();
         let last_modified = meta
             .modified()
             .map(chrono::DateTime::<chrono::Utc>::from)
             .unwrap_or_default();
-        let stream = tokio_util::io::ReaderStream::with_capacity(file, 256 << 10).map_err(io_err);
+        let payload = match data {
+            Some(buf) => object_store::GetResultPayload::Stream(
+                futures_util::stream::once(async move { Ok(Bytes::from(buf)) }).boxed(),
+            ),
+            None => {
+                let file = tokio::fs::File::open(root.join(hash)).await.map_err(io_err)?;
+                object_store::GetResultPayload::Stream(
+                    tokio_util::io::ReaderStream::with_capacity(file, 256 << 10)
+                        .map_err(io_err)
+                        .boxed(),
+                )
+            }
+        };
         Ok(Some(GetResult {
-            payload: object_store::GetResultPayload::Stream(stream.boxed()),
+            payload,
             meta: object_store::ObjectMeta {
                 location: self.key(hash),
                 last_modified,
@@ -305,8 +334,9 @@ impl CacheStore {
         }))
     }
 
-    /// Streamed write to a temp file, then an atomic rename. No fsync: a crash loses at most
-    /// the artifact being written, which Nx simply uploads again.
+    /// Disk write: the body streams through a channel into one blocking task that writes a
+    /// temp file and renames it into place. No fsync: a crash loses at most the artifact being
+    /// written, which Nx simply uploads again.
     async fn put_fs<S>(
         &self,
         root: &std::path::Path,
@@ -317,51 +347,90 @@ impl CacheStore {
     where
         S: Stream<Item = Result<Bytes, PutError>> + Unpin,
     {
-        use tokio::io::AsyncWriteExt;
         let final_path = root.join(hash);
-        if tokio::fs::try_exists(&final_path).await.unwrap_or(false) {
-            while let Some(chunk) = body.next().await {
-                chunk?;
-            }
-            return Ok(PutOutcome::AlreadyExists);
-        }
         let nonce = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
         // Dot-prefixed so the retention sweep ignores it while it is being written.
         let tmp = root.join(format!(".{hash}.{nonce}.tmp"));
-        let file = tokio::fs::File::create(&tmp).await.map_err(io_err)?;
-        let mut writer = tokio::io::BufWriter::with_capacity(256 << 10, file);
-        let mut received: u64 = 0;
-        let result: Result<(), PutError> = async {
+
+        // Small bodies: gather, then one blocking hop does exists + write + rename.
+        if expected_len.is_some_and(|n| n <= self.inline_threshold) {
+            let expected = expected_len.unwrap_or(0) as usize;
+            let mut buf = Vec::with_capacity(expected);
             while let Some(chunk) = body.next().await {
-                let chunk = chunk?;
-                received += chunk.len() as u64;
-                writer.write_all(&chunk).await.map_err(io_err)?;
+                buf.extend_from_slice(&chunk?);
             }
-            writer.flush().await.map_err(io_err)?;
+            if buf.len() != expected {
+                return Err(PutError::BadBody(format!(
+                    "announced {expected} bytes, received {}",
+                    buf.len()
+                )));
+            }
+            return tokio::task::spawn_blocking(move || write_whole(&final_path, &tmp, &buf))
+                .await
+                .map_err(|e| io_err(std::io::Error::other(e)))?
+                .map_err(|e| PutError::Store(io_err(e)));
+        }
+
+        // Large or unknown-length bodies: stream chunks to a writer thread.
+        if tokio::fs::try_exists(&final_path).await.unwrap_or(false) {
+            while let Some(chunk) = body.next().await {
+                chunk?;
+            }
+            return Ok(PutOutcome::AlreadyExists);
+        }
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Bytes>(16);
+        let (fp, tp) = (final_path.clone(), tmp.clone());
+        let writer = tokio::task::spawn_blocking(move || -> std::io::Result<PutOutcome> {
+            use std::io::Write;
+            let mut file = std::io::BufWriter::with_capacity(1 << 20, std::fs::File::create(&tp)?);
+            for chunk in rx {
+                file.write_all(&chunk)?;
+            }
+            file.flush()?;
+            drop(file);
+            if fp.exists() {
+                let _ = std::fs::remove_file(&tp);
+                return Ok(PutOutcome::AlreadyExists);
+            }
+            std::fs::rename(&tp, &fp)?;
+            Ok(PutOutcome::Created)
+        });
+        let mut received: u64 = 0;
+        let mut failure: Option<PutError> = None;
+        while let Some(chunk) = body.next().await {
+            match chunk {
+                Ok(c) => {
+                    received += c.len() as u64;
+                    if tx.send(c).is_err() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    failure = Some(e);
+                    break;
+                }
+            }
+        }
+        if failure.is_none() {
             if let Some(expected) = expected_len {
                 if received != expected {
-                    return Err(PutError::BadBody(format!(
+                    failure = Some(PutError::BadBody(format!(
                         "announced {expected} bytes, received {received}"
                     )));
                 }
             }
-            Ok(())
         }
-        .await;
-        drop(writer);
-        if let Err(e) = result {
+        drop(tx);
+        let outcome = writer.await.map_err(|e| io_err(std::io::Error::other(e)));
+        if let Some(e) = failure {
             let _ = tokio::fs::remove_file(&tmp).await;
+            let _ = tokio::fs::remove_file(&final_path).await;
             return Err(e);
         }
-        if tokio::fs::try_exists(&final_path).await.unwrap_or(false) {
-            let _ = tokio::fs::remove_file(&tmp).await;
-            return Ok(PutOutcome::AlreadyExists);
-        }
-        tokio::fs::rename(&tmp, &final_path).await.map_err(io_err)?;
-        Ok(PutOutcome::Created)
+        outcome?.map_err(|e| PutError::Store(io_err(e)))
     }
 
     async fn put_inline(&self, key: &StorePath, data: Bytes, attributes: Attributes) -> Result<PutOutcome, PutError> {
@@ -460,6 +529,20 @@ impl CacheStore {
             Err(e) => Err(e),
         }
     }
+}
+
+/// Synchronous exists + write + rename, run on the blocking pool.
+fn write_whole(final_path: &std::path::Path, tmp: &std::path::Path, data: &[u8]) -> std::io::Result<PutOutcome> {
+    if final_path.exists() {
+        return Ok(PutOutcome::AlreadyExists);
+    }
+    std::fs::write(tmp, data)?;
+    if final_path.exists() {
+        let _ = std::fs::remove_file(tmp);
+        return Ok(PutOutcome::AlreadyExists);
+    }
+    std::fs::rename(tmp, final_path)?;
+    Ok(PutOutcome::Created)
 }
 
 fn io_err(e: std::io::Error) -> StoreError {
