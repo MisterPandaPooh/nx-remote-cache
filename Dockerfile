@@ -17,10 +17,18 @@ COPY src ./src
 COPY --from=ui /ui/dist ./ui/dist
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
-    cargo build --release --locked --bin nx-remote-cache \
-    && cp target/release/nx-remote-cache /nx-remote-cache
+    cargo build --release --locked --bin nx-remote-cache --bin nx-cache-bench \
+    && cp target/release/nx-remote-cache /nx-remote-cache \
+    && cp target/release/nx-cache-bench /nx-cache-bench
 
-FROM scratch
+# Load generator, same static build (docker build --target bench -t nx-remote-cache:bench .)
+FROM scratch AS bench
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /nx-cache-bench /nx-cache-bench
+USER 65534:65534
+ENTRYPOINT ["/nx-cache-bench"]
+
+FROM scratch AS server
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /nx-remote-cache /nx-remote-cache
 USER 65534:65534

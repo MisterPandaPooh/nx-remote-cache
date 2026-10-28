@@ -1,4 +1,4 @@
-import type { CacheEvent, EventKind, Stats, TimelineBucket } from './api'
+import type { CacheEvent, EventKind, RunContext, Stats, TimelineBucket } from './api'
 
 // Small seeded PRNG so the mock timeline is stable between reloads.
 function mulberry32(seed: number) {
@@ -111,6 +111,19 @@ function pickKind(): EventKind {
   return 'hit'
 }
 
+const RUNS: RunContext[] = [
+  { run: '9412876503', repo: 'acme/storefront', ref: 'main', actor: 'alice', sha: 'a1b2c3d' },
+  { run: '9412880117', repo: 'acme/storefront', ref: 'feat/checkout-v2', actor: 'bob', sha: '4e5f6a7' },
+  { run: '9412795342', repo: 'acme/storefront', ref: 'main', actor: 'github-actions', sha: '77c0de1' },
+  { run: '9412901288', repo: 'acme/design-system', ref: 'release/4.x', actor: 'carol', sha: 'be9a1f0' },
+  { run: '9412913764', repo: 'acme/storefront', ref: 'fix/cart-total', actor: 'dave', sha: '2d3e4f5' },
+  { run: '5521' }, // run id only, no repo: renders without a link
+]
+const pickRun = (not?: string) => {
+  const pool = RUNS.filter((r) => r.run !== not)
+  return pool[Math.floor(rnd() * pool.length)]!
+}
+
 export function makeMockEvent(ts = Date.now()): CacheEvent {
   const kind = pickKind()
   const sized = kind === 'hit' || kind === 'put'
@@ -118,7 +131,14 @@ export function makeMockEvent(ts = Date.now()): CacheEvent {
   const base = kind === 'put' ? 25 : kind === 'hit' ? 3 : 1
   const ms = +(base * (0.4 + rnd() * 2.2) + (rnd() < 0.05 ? base * 8 : 0)).toFixed(2)
   const status = { hit: 200, miss: 404, put: 200, conflict: 409, forbidden: 403, unauthorized: 401, error: 500 }[kind]
-  return { ts: new Date(ts).toISOString(), kind, hash: randHash(), bytes, ms, status }
+  const ev: CacheEvent = { ts: new Date(ts).toISOString(), kind, hash: randHash(), bytes, ms, status }
+  if (rnd() < 0.6) {
+    ev.ctx = pickRun()
+    // Roughly half the hits reuse an artifact uploaded by another run.
+    if (kind === 'hit' && rnd() < 0.55) ev.origin = pickRun(ev.ctx.run)
+    else if (kind === 'put') ev.origin = ev.ctx
+  }
+  return ev
 }
 
 export function makeMockEvents(n: number): CacheEvent[] {

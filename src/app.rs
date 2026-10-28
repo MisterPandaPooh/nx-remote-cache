@@ -116,7 +116,8 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
-/// One structured log line per request. Tokens are never logged.
+/// One structured log line per request at `debug` (cache traffic can reach tens of thousands of
+/// requests per second; the event feed and metrics are the production view). Errors stay at `warn`.
 async fn access_log(req: Request, next: Next) -> Response {
     let method = req.method().clone();
     let path = req.uri().path().to_owned();
@@ -124,8 +125,8 @@ async fn access_log(req: Request, next: Next) -> Response {
     let res = next.run(req).await;
     let status = res.status().as_u16();
     let ms = start.elapsed().as_secs_f64() * 1000.0;
-    if path.starts_with("/v1/cache/") {
-        tracing::info!(target: "access", %method, %path, status, ms = format_args!("{ms:.2}"), "request");
+    if status >= 500 {
+        tracing::warn!(target: "access", %method, %path, status, ms = format_args!("{ms:.2}"), "request failed");
     } else {
         tracing::debug!(target: "access", %method, %path, status, ms = format_args!("{ms:.2}"), "request");
     }

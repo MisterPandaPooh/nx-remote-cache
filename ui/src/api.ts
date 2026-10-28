@@ -11,6 +11,9 @@ export type EventKind =
   | 'unauthorized'
   | 'error'
 
+/** Free-form requester description, typically the CI run (run, repo, ref, actor, sha…). */
+export type RunContext = Record<string, string>
+
 export interface CacheEvent {
   ts: string
   kind: EventKind
@@ -18,6 +21,10 @@ export interface CacheEvent {
   bytes?: number | null
   ms?: number | null
   status: number
+  /** The requester's CI context; absent when unknown. */
+  ctx?: RunContext
+  /** The run that originally uploaded the artifact (hit and put events). */
+  origin?: RunContext
 }
 
 export interface Counters {

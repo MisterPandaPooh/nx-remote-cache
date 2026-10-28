@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import type { EventKind } from '../api'
+import type { EventKind, RunContext } from '../api'
 import { formatBytes, formatMs, relativeTime, shortHash } from '../format'
 import { MAX_EVENTS, useCopy, type UiEvent } from '../hooks'
 import { Card, CardHeader } from './Card'
@@ -46,6 +46,57 @@ function HashCell({ hash }: { hash: string }) {
   )
 }
 
+const SAFE_REPO = /^[\w.-]+\/[\w.-]+$/
+const SAFE_RUN = /^\d+$/
+
+/** Link only when both parts look like a GitHub repo and a numeric run id. */
+function runUrl(c: RunContext | undefined): string | null {
+  if (!c?.repo || !c.run || !SAFE_REPO.test(c.repo) || !SAFE_RUN.test(c.run)) return null
+  return `https://github.com/${c.repo}/actions/runs/${c.run}`
+}
+
+function RunChip({ c }: { c: RunContext }) {
+  const url = runUrl(c)
+  const title = [c.actor && `by ${c.actor}`, c.repo, c.sha && `@ ${c.sha.slice(0, 7)}`].filter(Boolean).join(' · ') || undefined
+  const body = (
+    <>
+      <span className="text-ink">#{c.run}</span>
+      {c.ref && <span className="max-w-[7.5rem] truncate text-mute">{c.ref}</span>}
+    </>
+  )
+  const cls = 'inline-flex items-center gap-1.5 rounded-md border border-line bg-white/[0.03] px-1.5 py-0.5 font-mono text-[0.6875rem]'
+  return url ? (
+    <a href={url} target="_blank" rel="noreferrer" title={title} className={`${cls} transition hover:border-a2/50 hover:bg-a2/10`}>
+      {body}
+    </a>
+  ) : (
+    <span title={title} className={cls}>{body}</span>
+  )
+}
+
+function RunCell({ e }: { e: UiEvent }) {
+  const { ctx, origin } = e
+  const reused = e.kind === 'hit' && origin?.run && origin.run !== ctx?.run
+  if (!ctx?.run && !reused) return <span className="text-mute">—</span>
+  const from = reused && origin ? runUrl(origin) : null
+  const hint = reused && origin && (
+    <span className="text-[0.6875rem] text-mute" title={[origin.repo, origin.ref, origin.actor && `by ${origin.actor}`].filter(Boolean).join(' · ') || undefined}>
+      from{' '}
+      {from ? (
+        <a href={from} target="_blank" rel="noreferrer" className="font-mono text-dim underline decoration-dotted underline-offset-2 transition hover:text-ink">#{origin.run}</a>
+      ) : (
+        <span className="font-mono text-dim">#{origin.run}</span>
+      )}
+    </span>
+  )
+  return (
+    <span className="flex items-center gap-2 whitespace-nowrap">
+      {ctx?.run ? <RunChip c={ctx} /> : <span className="text-mute">—</span>}
+      {hint}
+    </span>
+  )
+}
+
 const statusColor = (s: number) => (s >= 500 ? 'text-bad' : s >= 400 ? 'text-miss' : 'text-dim')
 
 const Row = memo(function Row({ e, now }: { e: UiEvent; now: number }) {
@@ -56,6 +107,7 @@ const Row = memo(function Row({ e, now }: { e: UiEvent; now: number }) {
       </td>
       <td className="px-3 py-2"><KindChip kind={e.kind} /></td>
       <td className="px-3 py-2"><HashCell hash={e.hash} /></td>
+      <td className="px-3 py-2"><RunCell e={e} /></td>
       <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-dim">{e.bytes ? formatBytes(e.bytes) : '—'}</td>
       <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-dim">{formatMs(e.ms)}</td>
       <td className={`whitespace-nowrap py-2 pl-3 pr-5 text-right font-mono text-xs ${statusColor(e.status)}`}>{e.status}</td>
@@ -103,12 +155,13 @@ export function EventsTable({ events, now, streaming }: { events: UiEvent[]; now
       </div>
 
       <div className="scroll max-h-[27rem] overflow-auto">
-        <table className="w-full min-w-[640px] border-collapse text-left">
+        <table className="w-full min-w-[820px] border-collapse text-left">
           <thead className="sticky top-0 z-[1] bg-slate-900/95 backdrop-blur">
             <tr className="eyebrow">
               <th className="py-2 pl-5 pr-3 font-semibold">Time</th>
               <th className="px-3 py-2 font-semibold">Kind</th>
               <th className="px-3 py-2 font-semibold">Hash</th>
+              <th className="px-3 py-2 font-semibold">Run</th>
               <th className="px-3 py-2 text-right font-semibold">Size</th>
               <th className="px-3 py-2 text-right font-semibold">Duration</th>
               <th className="py-2 pl-3 pr-5 text-right font-semibold">Status</th>

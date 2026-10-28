@@ -60,7 +60,6 @@ services:
     environment:
       NX_CACHE_STORE_URL: file:///data
       NX_CACHE_TOKEN: bench
-      NX_CACHE_MEMORY_CACHE_BYTES: "0"
       RUST_LOG: warn
     # tmpfs owned by the server's uid: a named volume would be root-owned and unwritable.
     tmpfs: ["/data:uid=65534,gid=65534"]
@@ -73,6 +72,13 @@ services:
       AUTH_TOKEN: bench
       CLEANUP_THRESHOLD: 240h
     volumes: ["go-fs-data:/data"]
+
+  # The load generator, run inside the compose network so the host bridge is not the bottleneck:
+  #   docker compose run --rm bench --url http://rust-s3:3000 --token bench ...
+  bench:
+    image: nx-remote-cache:bench
+    profiles: ["tools"]
+    entrypoint: ["/nx-cache-bench"]
 
 volumes:
   go-fs-data:
