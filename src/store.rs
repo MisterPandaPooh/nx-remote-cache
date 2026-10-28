@@ -17,6 +17,10 @@ use object_store::{
 
 use crate::auth::Context as RequestContext;
 
+/// Disk writes up to this size are gathered and written in one blocking call; larger bodies
+/// stream chunk by chunk into a writer thread, so they are copied once.
+const FS_GATHER_MAX: u64 = 256 << 10;
+
 /// Prefix for the user-defined metadata keys written next to an artifact.
 const META_PREFIX: &str = "nx_";
 
@@ -356,7 +360,7 @@ impl CacheStore {
         let tmp = root.join(format!(".{hash}.{nonce}.tmp"));
 
         // Small bodies: gather, then one blocking hop does exists + write + rename.
-        if expected_len.is_some_and(|n| n <= self.inline_threshold) {
+        if expected_len.is_some_and(|n| n <= FS_GATHER_MAX) {
             let expected = expected_len.unwrap_or(0) as usize;
             let mut buf = Vec::with_capacity(expected);
             while let Some(chunk) = body.next().await {

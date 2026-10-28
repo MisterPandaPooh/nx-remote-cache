@@ -213,7 +213,10 @@ pub async fn put_artifact(
     let _permit = state.put_permits.acquire().await.expect("semaphore never closes");
     let counted = counted_stream(body, max);
     // Small uploads are copied into the memory tier on the way through (write-through).
-    let keep = expected.is_some_and(|n| n <= state.config.memory_cache_max_item) && state.memcache.enabled();
+    // Write-through is capped at 1 MiB: above that the extra copy costs more than the first
+    // read it saves, and a read populates the tier anyway.
+    let keep = expected.is_some_and(|n| n <= state.config.memory_cache_max_item.min(WRITE_THROUGH_MAX))
+        && state.memcache.enabled();
     let tee: std::sync::Arc<std::sync::Mutex<Vec<u8>>> = Default::default();
     let outcome = if keep {
         let sink = tee.clone();
@@ -276,6 +279,8 @@ pub async fn put_artifact(
 
 /// How much of a rejected upload we are willing to read so the client gets our answer.
 const DRAIN_BUDGET: u64 = 64 << 20;
+/// Largest upload copied into the memory tier on the way through.
+const WRITE_THROUGH_MAX: u64 = 1 << 20;
 
 async fn drain(body: Body, budget: u64) {
     let mut stream = body.into_data_stream();
