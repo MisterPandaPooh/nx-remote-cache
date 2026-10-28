@@ -26,18 +26,21 @@ pub struct Inner {
     pub stats: Stats,
     /// Bounds uploads in flight, and with them the server's memory.
     pub put_permits: tokio::sync::Semaphore,
+    pub memcache: crate::memcache::MemCache,
 }
 
 impl AppState {
     pub fn new(config: Config, store: CacheStore) -> Self {
         let tokens = Tokens::new(&config.rw_tokens, &config.ro_tokens, config.allow_anonymous);
         let put_permits = tokio::sync::Semaphore::new(config.max_concurrent_puts);
+        let memcache = crate::memcache::MemCache::new(config.memory_cache_bytes, config.memory_cache_max_item);
         Self(Arc::new(Inner {
             config,
             store,
             tokens,
             stats: Stats::new(),
             put_permits,
+            memcache,
         }))
     }
 

@@ -70,3 +70,12 @@ export function clockTime(ts: string | number, withSeconds = false): string {
 export function shortHash(hash: string): string {
   return hash.length <= 14 ? hash : `${hash.slice(0, 8)}…${hash.slice(-4)}`
 }
+
+/** Coarse span for TTLs and intervals: "30 days", "12 h", "45 min". */
+export function formatSpan(seconds: number): string {
+  const unit = (n: number, one: string, many: string) => `${+n.toFixed(1)} ${n === 1 ? one : many}`
+  if (seconds >= 86400) return unit(seconds / 86400, 'day', 'days')
+  if (seconds >= 3600) return `${+(seconds / 3600).toFixed(1)} h`
+  if (seconds >= 60) return `${Math.round(seconds / 60)} min`
+  return `${Math.round(seconds)} s`
+}

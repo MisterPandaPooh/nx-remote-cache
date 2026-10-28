@@ -22,6 +22,10 @@ pub struct Config {
     pub store_timeout: Duration,
     pub store_connect_timeout: Duration,
     pub store_max_retries: usize,
+    /// Memory budget for the hot-artifact LRU (0 disables it).
+    pub memory_cache_bytes: u64,
+    /// Artifacts above this size are never kept in memory.
+    pub memory_cache_max_item: u64,
     /// Global cap on uploads in flight; bounds memory to roughly
     /// `max_concurrent_puts * max(inline_put_threshold, multipart_chunk_bytes * multipart_concurrency)`.
     pub max_concurrent_puts: usize,
@@ -77,6 +81,8 @@ impl Config {
             store_timeout: Duration::from_secs(env_parse("NX_CACHE_STORE_TIMEOUT_SECS", 300)?),
             store_connect_timeout: Duration::from_secs(env_parse("NX_CACHE_STORE_CONNECT_TIMEOUT_SECS", 5)?),
             store_max_retries: env_parse("NX_CACHE_STORE_MAX_RETRIES", 3)?,
+            memory_cache_bytes: env_size("NX_CACHE_MEMORY_CACHE_BYTES", 256 << 20)?,
+            memory_cache_max_item: env_size("NX_CACHE_MEMORY_CACHE_MAX_ITEM", 4 << 20)?,
             max_concurrent_puts: env_parse::<usize>("NX_CACHE_MAX_CONCURRENT_PUTS", 64)?.max(1),
             ttl: env_duration("NX_CACHE_TTL")?,
             max_total_bytes: match std::env::var("NX_CACHE_MAX_TOTAL_BYTES") {
@@ -112,6 +118,8 @@ impl Config {
             store_timeout: Duration::from_secs(30),
             store_connect_timeout: Duration::from_secs(5),
             store_max_retries: 1,
+            memory_cache_bytes: 8 << 20,
+            memory_cache_max_item: 1 << 20,
             max_concurrent_puts: 8,
             ttl: None,
             max_total_bytes: None,

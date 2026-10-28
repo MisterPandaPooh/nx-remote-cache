@@ -429,3 +429,46 @@ async fn trusted_proxy_header_opens_dashboard_only() {
         .unwrap();
     assert_eq!(res.status(), 401);
 }
+
+#[tokio::test]
+async fn memory_tier_serves_small_hot_artifacts() {
+    let s = start(Config::for_tests("memory:///")).await;
+    assert_eq!(s.put("hot", "rw-token", payload(2000)).await.status(), 200);
+    // Write-through: the first read already comes from memory.
+    let res = s.get("hot", "rw-token").await;
+    assert_eq!(res.status(), 200);
+    assert_eq!(
+        res.headers().get("x-cache-tier").map(|v| v.to_str().unwrap()),
+        Some("memory"),
+        "{:?}",
+        res.headers()
+    );
+    assert_eq!(res.bytes().await.unwrap().len(), 2000);
+
+    // Something written past the memory limit is read from the store, then kept if small enough.
+    assert_eq!(s.put("warm", "rw-token", payload(3000)).await.status(), 200);
+    let stats: serde_json::Value = serde_json::from_str(
+        &s.client
+            .get(s.url("/api/v1/stats"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(stats["memory_cache"]["enabled"], true);
+    assert!(stats["memory_cache"]["items"].as_u64().unwrap() >= 2);
+    let metrics = s
+        .client
+        .get(s.url("/metrics"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(metrics.contains("nx_cache_memory_tier_hits_total 1"));
+}

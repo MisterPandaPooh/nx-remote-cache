@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Stats } from '../api'
 import { clockTime, formatBytes, formatInt } from '../format'
-import { useWidth } from '../hooks'
+import { useSize } from '../hooks'
 import { Card, CardHeader } from './Card'
 
 const RANGES = [
@@ -17,7 +17,7 @@ const SERIES = [
 ] as const
 type Key = (typeof SERIES)[number]['key']
 
-const H = 244
+const MIN_H = 244
 const PAD = { l: 38, r: 6, t: 10, b: 24 }
 
 function niceMax(v: number): number {
@@ -31,7 +31,9 @@ export function ActivityChart({ stats }: { stats: Stats }) {
   const [range, setRange] = useState<(typeof RANGES)[number]>(RANGES[2])
   const [off, setOff] = useState<Set<Key>>(new Set())
   const [hover, setHover] = useState<number | null>(null)
-  const [ref, width] = useWidth<HTMLDivElement>()
+  const [ref, size] = useSize<HTMLDivElement>()
+  const width = size.width
+  const H = Math.max(MIN_H, size.height)
 
   const data = useMemo(() => stats.timeline.slice(-range.n), [stats.timeline, range])
   const on = SERIES.filter((s) => !off.has(s.key))
@@ -61,7 +63,7 @@ export function ActivityChart({ stats }: { stats: Stats }) {
   const tipX = hover != null ? PAD.l + (hover + 0.5) * slot : 0
 
   return (
-    <Card index={4} className="h-full p-5">
+    <Card index={4} className="flex h-full flex-col p-5">
       <CardHeader
         title="Cache activity"
         hint="Requests per 5-minute bucket"
@@ -101,7 +103,7 @@ export function ActivityChart({ stats }: { stats: Stats }) {
         }
       />
 
-      <div ref={ref} className="relative mt-4 select-none" style={{ height: H }}>
+      <div ref={ref} className="relative mt-4 min-h-[244px] flex-1 select-none">
         {width > 0 && (
           <svg
             className="absolute left-0 top-0"

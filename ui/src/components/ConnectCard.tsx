@@ -7,7 +7,7 @@ export function ConnectCard() {
   const plain = `NX_SELF_HOSTED_REMOTE_CACHE_SERVER=${origin}\nNX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=<your token>`
 
   return (
-    <Card index={7} className="grid gap-6 p-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-center lg:p-6">
+    <Card index={8} className="grid h-full gap-6 p-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-center lg:p-6">
       <div>
         <span className="eyebrow">Get started</span>
         <h2 className="mt-2 text-xl font-semibold tracking-tight">

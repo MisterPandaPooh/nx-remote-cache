@@ -27,11 +27,22 @@ function Chip({ label, children, title }: { label?: string; children: React.Reac
   )
 }
 
-export function TopBar({ stats, mode, streaming, stale }: { stats: Stats | null; mode: Mode; streaming: boolean; stale: boolean }) {
+interface TopBarProps {
+  stats: Stats | null
+  mode: Mode
+  streaming: boolean
+  stale: boolean
+  hasToken: boolean
+  onDisconnect: () => void
+}
+
+export function TopBar({ stats, mode, streaming, stale, hasToken, onDisconnect }: TopBarProps) {
   const status =
     stale && mode === 'live'
       ? { text: 'Server unreachable', cls: 'text-bad', pulse: false }
-      : mode === 'probing'
+      : mode === 'auth'
+        ? { text: 'Locked', cls: 'text-miss', pulse: false }
+        : mode === 'probing'
         ? { text: 'Connecting…', cls: 'text-mute', pulse: false }
         : streaming
           ? { text: 'Live', cls: 'text-hit', pulse: true }
@@ -73,6 +84,18 @@ export function TopBar({ stats, mode, streaming, stale }: { stats: Stats | null;
           <span className={status.pulse ? 'live-dot' : 'size-2 rounded-full bg-current'} />
           {status.text}
         </span>
+        {hasToken && (
+          <button
+            onClick={onDisconnect}
+            className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-mute transition hover:border-bad/40 hover:bg-bad/10 hover:text-bad"
+            title="Forget the stored access token"
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M4.5 1.5h-2a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2M8 3.5 10.5 6 8 8.5M10.5 6h-6" />
+            </svg>
+            Disconnect
+          </button>
+        )}
       </div>
     </header>
   )

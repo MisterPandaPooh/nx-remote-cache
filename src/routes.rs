@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use axum::body::Body;
 use axum::extract::{Path, Query, Request, State};
-use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
+use axum::http::{header, HeaderMap, HeaderName, HeaderValue, StatusCode};
 use axum::middleware::Next;
 use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
@@ -63,19 +63,57 @@ pub async fn get_artifact(State(state): State<AppState>, Path(hash): Path<String
     if let Err(res) = authenticate(&state, &headers, &hash, start) {
         return res;
     }
+    if let Some(data) = state.memcache.get(&hash) {
+        let len = data.len() as u64;
+        state.stats.record(Kind::Hit, &hash, len, start.elapsed(), 200);
+        let mut res = Response::new(Body::from(data));
+        let h = res.headers_mut();
+        h.insert(header::CONTENT_TYPE, OCTET_STREAM);
+        h.insert(header::CONTENT_LENGTH, HeaderValue::from(len));
+        h.insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("private, max-age=31536000, immutable"),
+        );
+        h.insert(
+            HeaderName::from_static("x-cache-tier"),
+            HeaderValue::from_static("memory"),
+        );
+        return res;
+    }
     match state.store.get(&hash).await {
         Ok(Some(result)) => {
             let len = result.meta.size;
             let etag = result.meta.e_tag.clone();
             state.stats.record(Kind::Hit, &hash, len, start.elapsed(), 200);
-            let stream = result.into_stream().map_err(std::io::Error::other);
-            let mut res = Response::new(Body::from_stream(stream));
+            let body = if len <= state.config.memory_cache_max_item && state.memcache.enabled() {
+                // Small enough to keep: read it once, remember it, serve it.
+                match result.bytes().await {
+                    Ok(data) => {
+                        state.memcache.insert(&hash, data.clone());
+                        Body::from(data)
+                    }
+                    Err(e) => {
+                        tracing::error!(hash, error = %e, "store read failed");
+                        return text(
+                            StatusCode::BAD_GATEWAY,
+                            format!("nx-remote-cache: store read failed: {e}"),
+                        );
+                    }
+                }
+            } else {
+                Body::from_stream(result.into_stream().map_err(std::io::Error::other))
+            };
+            let mut res = Response::new(body);
             let h = res.headers_mut();
             h.insert(header::CONTENT_TYPE, OCTET_STREAM);
             h.insert(header::CONTENT_LENGTH, HeaderValue::from(len));
             h.insert(
                 header::CACHE_CONTROL,
                 HeaderValue::from_static("private, max-age=31536000, immutable"),
+            );
+            h.insert(
+                HeaderName::from_static("x-cache-tier"),
+                HeaderValue::from_static("store"),
             );
             if let Some(tag) = etag.and_then(|t| HeaderValue::from_str(&t).ok()) {
                 h.insert(header::ETAG, tag);
@@ -147,8 +185,26 @@ pub async fn put_artifact(
 
     let _permit = state.put_permits.acquire().await.expect("semaphore never closes");
     let counted = counted_stream(body, max);
-    match state.store.put(&hash, expected, counted).await {
+    // Small uploads are copied into the memory tier on the way through (write-through).
+    let keep = expected.is_some_and(|n| n <= state.config.memory_cache_max_item) && state.memcache.enabled();
+    let tee: std::sync::Arc<std::sync::Mutex<Vec<u8>>> = Default::default();
+    let outcome = if keep {
+        let sink = tee.clone();
+        sink.lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .reserve(expected.unwrap_or(0) as usize);
+        let teed =
+            counted.inspect_ok(move |chunk| sink.lock().unwrap_or_else(|p| p.into_inner()).extend_from_slice(chunk));
+        state.store.put(&hash, expected, Box::pin(teed)).await
+    } else {
+        state.store.put(&hash, expected, counted).await
+    };
+    match outcome {
         Ok(PutOutcome::Created) => {
+            if keep {
+                let data = std::mem::take(&mut *tee.lock().unwrap_or_else(|p| p.into_inner()));
+                state.memcache.insert(&hash, Bytes::from(data));
+            }
             state
                 .stats
                 .record(Kind::Put, &hash, expected.unwrap_or(0), start.elapsed(), 200);
@@ -235,7 +291,9 @@ pub async fn readyz(State(state): State<AppState>) -> Response {
 pub async fn metrics(State(state): State<AppState>) -> Response {
     (
         [(header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
-        state.stats.prometheus(VERSION, state.store.kind),
+        state
+            .stats
+            .prometheus(VERSION, state.store.kind, &state.memcache.stats()),
     )
         .into_response()
 }
@@ -250,6 +308,7 @@ pub struct StatsResponse {
     counters: crate::stats::CountersSnapshot,
     latency_ms: Latencies,
     retention: Retention,
+    memory_cache: crate::memcache::MemCacheStats,
     timeline: Vec<TimelinePoint>,
 }
 
@@ -303,6 +362,7 @@ pub async fn stats(State(state): State<AppState>) -> Json<StatsResponse> {
             bytes_freed_total: s.swept_bytes.load(std::sync::atomic::Ordering::Relaxed),
             last_sweep: s.last_sweep(),
         },
+        memory_cache: state.memcache.stats(),
         timeline: s.timeline(),
     })
 }

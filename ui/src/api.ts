@@ -1,3 +1,5 @@
+import { getToken } from './auth'
+
 // Types mirror docs/api.md (Dashboard API).
 
 export type EventKind =
@@ -52,6 +54,25 @@ export interface TimelineBucket {
   bytes_stored: number
 }
 
+export interface LastSweep {
+  at: string
+  scanned: number
+  deleted: number
+  bytes_freed: number
+  total_bytes: number
+  duration_ms: number
+}
+
+export interface Retention {
+  ttl_seconds: number | null
+  max_total_bytes: number | null
+  max_artifact_bytes: number | null
+  sweep_interval_seconds: number
+  deleted_total: number
+  bytes_freed_total: number
+  last_sweep: LastSweep | null
+}
+
 export interface Stats {
   version: string
   uptime_seconds: number
@@ -61,29 +82,37 @@ export interface Stats {
   counters: Counters
   latency_ms: LatencyMs
   timeline: TimelineBucket[]
+  /** Absent on servers older than the retention feature. */
+  retention?: Retention
 }
 
-// Optional `?token=` in the page URL is forwarded (server may require NX_CACHE_UI_TOKEN).
-const token = new URLSearchParams(window.location.search).get('token')
-
-export function apiUrl(path: string): string {
-  if (!token) return path
-  return `${path}${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('Unauthorized')
+    this.name = 'UnauthorizedError'
+  }
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(apiUrl(path), { signal, headers: { Accept: 'application/json' } })
+async function getJson<T>(path: string, signal?: AbortSignal, tokenOverride?: string): Promise<T> {
+  const token = tokenOverride ?? getToken()
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(path, { signal, headers })
+  if (res.status === 401) throw new UnauthorizedError()
   if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`)
   return (await res.json()) as T
 }
 
-export const fetchStats = (signal?: AbortSignal) => getJson<Stats>('/api/v1/stats', signal)
+export const fetchStats = (signal?: AbortSignal, token?: string) => getJson<Stats>('/api/v1/stats', signal, token)
 
 export async function fetchEvents(limit = 100, signal?: AbortSignal): Promise<CacheEvent[]> {
   const body = await getJson<{ events: CacheEvent[] }>(`/api/v1/events?limit=${limit}`, signal)
   return body.events
 }
 
+/** EventSource cannot set headers, so the token travels as a query parameter. */
 export function openEventStream(): EventSource {
-  return new EventSource(apiUrl('/api/v1/events/stream'))
+  const token = getToken()
+  const q = token ? `?token=${encodeURIComponent(token)}` : ''
+  return new EventSource(`/api/v1/events/stream${q}`)
 }

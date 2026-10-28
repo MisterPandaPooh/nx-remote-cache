@@ -1,5 +1,4 @@
-// TODO: point at the real repository once it has a public remote.
-const REPO_README = 'https://github.com/MisterPandaPooh/nx-remote-cache#readme'
+const REPO_URL = 'https://github.com/MisterPandaPooh/nx-remote-cache'
 
 export function Footer({ version }: { version?: string }) {
   return (
@@ -7,7 +6,7 @@ export function Footer({ version }: { version?: string }) {
       <span>
         nx-remote-cache {version ? <span className="font-mono text-dim">v{version}</span> : null}
       </span>
-      <a href={REPO_README} target="_blank" rel="noreferrer" className="transition hover:text-ink">
+      <a href={REPO_URL} target="_blank" rel="noreferrer" className="transition hover:text-ink">
         README &amp; docs ↗
       </a>
     </footer>

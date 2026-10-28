@@ -73,6 +73,22 @@ export function createMockState(): Stats {
       put: { p50: 25, p90: 120, p99: 400, count: c.puts },
     },
     timeline,
+    retention: {
+      ttl_seconds: 30 * 86400,
+      max_total_bytes: 500 * 1024 ** 3,
+      max_artifact_bytes: 4 * 1024 ** 3,
+      sweep_interval_seconds: 3600,
+      deleted_total: 120,
+      bytes_freed_total: 9_876_543_210,
+      last_sweep: {
+        at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+        scanned: 51_234,
+        deleted: 12,
+        bytes_freed: 123_456_789,
+        total_bytes: 214_000_000_000,
+        duration_ms: 850,
+      },
+    },
   }
 }
 

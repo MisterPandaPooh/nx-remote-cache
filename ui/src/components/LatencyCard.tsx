@@ -48,7 +48,7 @@ function Group({ label, sub, dot, p, index }: { label: string; sub: string; dot:
 
 export function LatencyCard({ stats }: { stats: Stats }) {
   return (
-    <Card index={5} className="h-full p-5">
+    <Card index={5} className="p-5">
       <CardHeader title="Latency" hint="Percentiles per operation" />
       <div className="mt-5 space-y-5">
         {OPS.map((o, i) => (
