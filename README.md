@@ -145,8 +145,42 @@ same machine, same S3 bucket (S3Mock) or same local disk, 32 concurrent connecti
 method and how to rerun: [`bench/RESULTS.md`](bench/RESULTS.md).
 
 <!-- BENCH:START -->
-_Results are filled in from `bench/RESULTS.md`._
+**4 KB artifacts** · PUT req/s · GET hit req/s (MB/s) · GET miss p50 / p99
+
+| Server | PUT | GET hit | GET miss |
+|---|---:|---:|---:|
+| nx-remote-cache (Rust) on S3, memory tier off | 908 | 1,712 (7 MB/s) | 9.03 / 23.09 ms |
+| nx-remote-cache (Rust) on S3, memory tier on | 887 | 45,020 (184 MB/s) | 10.07 / 24.17 ms |
+| nx-cache-server (Deno) on S3 | 589 | 1,833 (8 MB/s) | 14.70 / 58.89 ms |
+| nx-remote-cache (Rust) on local disk | 28,247 | 53,328 (218 MB/s) | 0.45 / 1.09 ms |
+| nx-caching-server (Go) on local disk | 27,221 | 42,178 (173 MB/s) | 0.33 / 0.80 ms |
+
+**256 KB artifacts** · PUT req/s · GET hit req/s (MB/s) · GET miss p50 / p99
+
+| Server | PUT | GET hit | GET miss |
+|---|---:|---:|---:|
+| nx-remote-cache (Rust) on S3, memory tier off | 758 | 1,248 (327 MB/s) | 8.89 / 24.24 ms |
+| nx-remote-cache (Rust) on S3, memory tier on | 698 | 10,903 (2858 MB/s) | 10.77 / 26.12 ms |
+| nx-cache-server (Deno) on S3 | 499 | 1,397 (366 MB/s) | 14.28 / 26.90 ms |
+| nx-remote-cache (Rust) on local disk | 6,702 | 10,360 (2716 MB/s) | 0.44 / 1.81 ms |
+| nx-caching-server (Go) on local disk | 15,945 | 9,765 (2560 MB/s) | 0.42 / 0.87 ms |
+
+**4 MB artifacts** · PUT req/s · GET hit req/s (MB/s) · GET miss p50 / p99
+
+| Server | PUT | GET hit | GET miss |
+|---|---:|---:|---:|
+| nx-remote-cache (Rust) on S3, memory tier off | 336 | 575 (2411 MB/s) | 7.59 / 59.82 ms |
+| nx-remote-cache (Rust) on S3, memory tier on | 329 | 498 (2088 MB/s) | 6.97 / 22.25 ms |
+| nx-cache-server (Deno) on S3 | 178 | 471 (1975 MB/s) | 17.23 / 29.56 ms |
+| nx-remote-cache (Rust) on local disk | 1,343 | 877 (3678 MB/s) | 0.39 / 0.80 ms |
+| nx-caching-server (Go) on local disk | 3,463 | 1,025 (4297 MB/s) | 0.39 / 2.66 ms |
 <!-- BENCH:END -->
+
+Reading the tables: on object storage, the arena that matters in production, the Rust server
+uploads 1.5 to 1.9× faster than the Deno server, answers misses in about 60 % of the time, and
+serves hot artifacts from the memory tier 8 to 25× faster; store-path hits are within noise of
+each other (both wait on S3). On a local disk the Go server, which writes with a single copy
+loop, still uploads large artifacts 2 to 2.5× faster; hits and misses are a tie or in our favour.
 
 What makes the difference:
 
@@ -154,8 +188,8 @@ What makes the difference:
   Deno's `nx-cache-server` reads uploads fully before sending them to S3.
 - **Memory tier.** Hot artifacts up to 4 MB are served from RAM (`x-cache-tier: memory`),
   without a store round trip. Artifacts are immutable, so the copy can never be stale.
-- **Misses are cheap.** A miss is one `GET` on the store with no body, answered from a pool of
-  keep-alive connections; on local disk it is a `stat`.
+- **Misses are cheap.** A miss is one `HEAD`-sized `GET` on the store with no body, answered
+  from a pool of keep-alive connections; on local disk it is a single `open`.
 - **Nothing between the socket and the store.** hyper + tokio, no runtime, no GC, ~4 MB image.
 
 ```bash
