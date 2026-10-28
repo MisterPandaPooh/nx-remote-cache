@@ -1,0 +1,8 @@
+target
+ui/node_modules
+ui/dist
+.git
+docs
+site
+deploy
+*.md

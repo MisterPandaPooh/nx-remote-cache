@@ -1,0 +1,17 @@
+{
+  "rules": [
+    {
+      "enabled": true,
+      "name": "nx-cache-expire-unused",
+      "type": "Lifecycle",
+      "definition": {
+        "filters": { "blobTypes": ["blockBlob"], "prefixMatch": ["nx-cache/"] },
+        "actions": {
+          "baseBlob": {
+            "delete": { "daysAfterLastAccessTimeGreaterThan": 30 }
+          }
+        }
+      }
+    }
+  ]
+}

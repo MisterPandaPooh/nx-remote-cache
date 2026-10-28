@@ -145,6 +145,7 @@ pub async fn put_artifact(
         );
     }
 
+    let _permit = state.put_permits.acquire().await.expect("semaphore never closes");
     let counted = counted_stream(body, max);
     match state.store.put(&hash, expected, counted).await {
         Ok(PutOutcome::Created) => {
@@ -248,7 +249,19 @@ pub struct StatsResponse {
     pod: String,
     counters: crate::stats::CountersSnapshot,
     latency_ms: Latencies,
+    retention: Retention,
     timeline: Vec<TimelinePoint>,
+}
+
+#[derive(Serialize)]
+struct Retention {
+    ttl_seconds: Option<u64>,
+    max_total_bytes: Option<u64>,
+    max_artifact_bytes: u64,
+    sweep_interval_seconds: u64,
+    deleted_total: u64,
+    bytes_freed_total: u64,
+    last_sweep: Option<crate::store::SweepReport>,
 }
 
 #[derive(Serialize)]
@@ -280,6 +293,15 @@ pub async fn stats(State(state): State<AppState>) -> Json<StatsResponse> {
             get_hit: s.get_hit.snapshot().summary(),
             get_miss: s.get_miss.snapshot().summary(),
             put: s.put.snapshot().summary(),
+        },
+        retention: Retention {
+            ttl_seconds: state.config.ttl.map(|d| d.as_secs()),
+            max_total_bytes: state.config.max_total_bytes,
+            max_artifact_bytes: state.config.max_artifact_bytes,
+            sweep_interval_seconds: state.config.sweep_interval.as_secs(),
+            deleted_total: s.swept_objects.load(std::sync::atomic::Ordering::Relaxed),
+            bytes_freed_total: s.swept_bytes.load(std::sync::atomic::Ordering::Relaxed),
+            last_sweep: s.last_sweep(),
         },
         timeline: s.timeline(),
     })
@@ -318,27 +340,48 @@ pub struct TokenQuery {
     token: Option<String>,
 }
 
-/// Optional gate for the dashboard and its API (`NX_CACHE_UI_TOKEN`).
+/// Gate for the dashboard and its API. Accepts `NX_CACHE_UI_TOKEN` when set, or any cache
+/// token (read-write or read-only). Open only when the cache itself runs anonymous.
 pub async fn ui_guard(
     State(state): State<AppState>,
     Query(q): Query<TokenQuery>,
     req: Request,
     next: Next,
 ) -> Response {
-    let Some(expected) = state.config.ui_token.as_deref() else {
+    let ui_token = state.config.ui_token.as_deref();
+    if ui_token.is_none() && state.config.allow_anonymous {
         return next.run(req).await;
-    };
-    let bearer = req
+    }
+    if let Some(name) = state.config.ui_trusted_header.as_deref() {
+        if req.headers().get(name).is_some_and(|v| !v.is_empty()) {
+            return next.run(req).await;
+        }
+    }
+    let header = req
         .headers()
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer ").or_else(|| v.strip_prefix("bearer ")))
-        .map(str::trim);
-    let presented = bearer.or(q.token.as_deref()).unwrap_or("");
-    if Tokens::matches_single(expected, presented) {
+        .map(str::to_owned);
+    let presented = header
+        .clone()
+        .or_else(|| q.token.as_ref().map(|t| format!("Bearer {t}")));
+    let raw = q.token.clone().or_else(|| {
+        header
+            .as_deref()
+            .and_then(|h| h.split_once(char::is_whitespace))
+            .map(|(_, t)| t.trim().to_owned())
+    });
+    let ok = ui_token
+        .zip(raw.as_deref())
+        .is_some_and(|(e, p)| Tokens::matches_single(e, p))
+        || (!state.config.allow_anonymous && state.tokens.authenticate(presented.as_deref()).is_ok());
+    if ok {
         next.run(req).await
     } else {
-        text(StatusCode::UNAUTHORIZED, "dashboard token required (NX_CACHE_UI_TOKEN)")
+        text(
+            StatusCode::UNAUTHORIZED,
+            "dashboard token required (NX_CACHE_UI_TOKEN or a cache token)",
+        )
     }
 }
 

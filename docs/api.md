@@ -59,3 +59,14 @@ All JSON. No auth unless `NX_CACHE_UI_TOKEN` is set (then `Authorization: Bearer
 ### `GET /api/v1/events/stream`
 
 Server-Sent Events; each `data:` line is one event object as above.
+
+### `retention` block in `GET /api/v1/stats` (added)
+
+```json
+"retention": {
+  "ttl_seconds": 2592000, "max_total_bytes": 536870912000, "max_artifact_bytes": 4294967296,
+  "sweep_interval_seconds": 3600, "deleted_total": 120, "bytes_freed_total": 9876543210,
+  "last_sweep": { "at": "2026-10-29T10:00:00Z", "scanned": 51234, "deleted": 12, "bytes_freed": 123456, "total_bytes": 4000000000, "duration_ms": 850 }
+}
+```
+`ttl_seconds`, `max_total_bytes` and `last_sweep` are `null` when retention is off.

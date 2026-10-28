@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nx-remote-cache
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml
+  - pdb.yaml
+# Create the secret out of band, e.g.:
+#   kubectl -n nx-remote-cache create secret generic nx-remote-cache \
+#     --from-literal=NX_CACHE_TOKEN=... --from-literal=NX_CACHE_READ_TOKEN=...

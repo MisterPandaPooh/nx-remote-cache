@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nx-remote-cache
+  labels:
+    app.kubernetes.io/name: nx-remote-cache
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nx-remote-cache
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nx-remote-cache
+        # azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: nx-remote-cache
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: server
+          image: ghcr.io/misterpandapooh/nx-remote-cache:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: NX_CACHE_STORE_URL
+              value: az://nx-cache/
+            - name: AZURE_STORAGE_ACCOUNT_NAME
+              value: mystorageaccount
+            # Alternative to Workload Identity: an account key from the same secret.
+            # - name: AZURE_STORAGE_ACCOUNT_KEY
+            #   valueFrom: { secretKeyRef: { name: nx-remote-cache, key: AZURE_STORAGE_ACCOUNT_KEY } }
+            - name: NX_CACHE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: nx-remote-cache
+                  key: NX_CACHE_TOKEN
+            - name: NX_CACHE_READ_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: nx-remote-cache
+                  key: NX_CACHE_READ_TOKEN
+                  optional: true
+            - name: NX_CACHE_MAX_ARTIFACT_BYTES
+              value: 2GB
+            - name: RUST_LOG
+              value: info
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

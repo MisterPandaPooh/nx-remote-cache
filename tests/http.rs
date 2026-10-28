@@ -231,6 +231,7 @@ async fn ops_and_dashboard_endpoints() {
     let stats: serde_json::Value = serde_json::from_str(
         &s.client
             .get(s.url("/api/v1/stats"))
+            .bearer_auth("rw-token")
             .send()
             .await
             .unwrap()
@@ -249,6 +250,7 @@ async fn ops_and_dashboard_endpoints() {
     let events: serde_json::Value = serde_json::from_str(
         &s.client
             .get(s.url("/api/v1/events?limit=2"))
+            .bearer_auth("rw-token")
             .send()
             .await
             .unwrap()
@@ -262,8 +264,9 @@ async fn ops_and_dashboard_endpoints() {
     assert_eq!(events[0]["kind"], "conflict");
     assert_eq!(events[1]["kind"], "miss");
 
-    // The UI fallback answers something for `/`.
-    let home = s.client.get(s.url("/")).send().await.unwrap();
+    // The UI fallback answers something for `/` (dashboard needs a token, cache token works).
+    assert_eq!(s.client.get(s.url("/")).send().await.unwrap().status(), 401);
+    let home = s.client.get(s.url("/?token=rw-token")).send().await.unwrap();
     assert_eq!(home.status(), 200);
     assert!(home.headers()["content-type"]
         .to_str()
@@ -275,7 +278,13 @@ async fn ops_and_dashboard_endpoints() {
 async fn sse_stream_delivers_live_events() {
     use futures_util::StreamExt;
     let s = start(Config::for_tests("memory:///")).await;
-    let res = s.client.get(s.url("/api/v1/events/stream")).send().await.unwrap();
+    let res = s
+        .client
+        .get(s.url("/api/v1/events/stream"))
+        .bearer_auth("rw-token")
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200);
     assert!(res.headers()["content-type"]
         .to_str()
@@ -322,6 +331,101 @@ async fn ui_token_guards_dashboard_but_not_cache_api() {
         200
     );
     assert_eq!(s.client.get(s.url("/")).send().await.unwrap().status(), 401);
+    // Cache tokens also open the dashboard; random ones do not.
+    assert_eq!(
+        s.client
+            .get(s.url("/api/v1/stats"))
+            .bearer_auth("ro-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    assert_eq!(
+        s.client
+            .get(s.url("/api/v1/stats"))
+            .bearer_auth("nope")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
     assert_eq!(s.get("x", "rw-token").await.status(), 404);
     assert_eq!(s.client.get(s.url("/metrics")).send().await.unwrap().status(), 200);
+}
+
+#[tokio::test]
+async fn anonymous_cache_means_open_dashboard() {
+    let mut cfg = Config::for_tests("memory:///");
+    cfg.rw_tokens.clear();
+    cfg.ro_tokens.clear();
+    cfg.allow_anonymous = true;
+    let s = start(cfg).await;
+    assert_eq!(s.client.get(s.url("/api/v1/stats")).send().await.unwrap().status(), 200);
+}
+
+#[tokio::test]
+async fn retention_sweep_is_reported_in_stats_and_metrics() {
+    let mut cfg = Config::for_tests("memory:///");
+    cfg.max_total_bytes = Some(2500);
+    let s = start(cfg.clone()).await;
+    for i in 0..5 {
+        assert_eq!(s.put(&format!("r{i}"), "rw-token", payload(1000)).await.status(), 200);
+        tokio::time::sleep(std::time::Duration::from_millis(3)).await;
+    }
+    // Drive a sweep through a second state sharing nothing but the config shape: build it directly.
+    let store = CacheStore::open(&cfg).await.unwrap();
+    let state = AppState::new(cfg, store);
+    state.sweep_once().await; // empty memory store: nothing to do, must not panic
+    let stats: serde_json::Value = serde_json::from_str(
+        &s.client
+            .get(s.url("/api/v1/stats"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(stats["retention"]["max_total_bytes"], 2500);
+    assert!(stats["retention"]["ttl_seconds"].is_null());
+    let metrics = s
+        .client
+        .get(s.url("/metrics"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(metrics.contains("nx_cache_retention_deleted_total 0"));
+}
+
+#[tokio::test]
+async fn trusted_proxy_header_opens_dashboard_only() {
+    let mut cfg = Config::for_tests("memory:///");
+    cfg.ui_trusted_header = Some("x-auth-request-email".into());
+    let s = start(cfg).await;
+    assert_eq!(s.client.get(s.url("/api/v1/stats")).send().await.unwrap().status(), 401);
+    let res = s
+        .client
+        .get(s.url("/api/v1/stats"))
+        .header("x-auth-request-email", "dev@example.com")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+    // The cache API still wants its own token.
+    let res = s
+        .client
+        .get(s.url("/v1/cache/abc"))
+        .header("x-auth-request-email", "dev@example.com")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 401);
 }

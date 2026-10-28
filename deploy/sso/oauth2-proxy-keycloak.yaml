@@ -1,0 +1,61 @@
+# SSO for the dashboard with Keycloak, through oauth2-proxy.
+#
+# Traffic: Ingress -> oauth2-proxy (login with Keycloak) -> nx-remote-cache
+# The cache API (/v1/cache/*) is excluded from SSO: Nx CLI keeps using its bearer token.
+#
+# Keycloak: create an OIDC client `nx-remote-cache` (confidential, standard flow) with redirect URI
+# https://nx-cache.example.com/oauth2/callback. For a SAML identity provider (ADFS, Okta SAML...),
+# add it as an Identity Provider in Keycloak: Keycloak brokers SAML and still exposes OIDC here.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oauth2-proxy
+  namespace: nx-remote-cache
+type: Opaque
+stringData:
+  client-id: nx-remote-cache
+  client-secret: "<keycloak client secret>"
+  cookie-secret: "<32 random bytes, base64>"   # python3 -c 'import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: nx-remote-cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: oauth2-proxy }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: oauth2-proxy }
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.8.1
+          args:
+            - --provider=keycloak-oidc
+            - --oidc-issuer-url=https://keycloak.example.com/realms/<realm>
+            - --redirect-url=https://nx-cache.example.com/oauth2/callback
+            - --email-domain=*
+            # - --allowed-group=/nx-cache-admins      # restrict to a Keycloak group
+            - --upstream=http://nx-remote-cache.nx-remote-cache.svc/
+            - --skip-auth-route=^/v1/cache/            # Nx CLI traffic bypasses SSO
+            - --skip-auth-route=^/healthz,^/readyz,^/metrics
+            - --set-xauthrequest=true                  # adds X-Auth-Request-Email for the server
+            - --cookie-secure=true
+            - --http-address=0.0.0.0:4180
+          env:
+            - { name: OAUTH2_PROXY_CLIENT_ID, valueFrom: { secretKeyRef: { name: oauth2-proxy, key: client-id } } }
+            - { name: OAUTH2_PROXY_CLIENT_SECRET, valueFrom: { secretKeyRef: { name: oauth2-proxy, key: client-secret } } }
+            - { name: OAUTH2_PROXY_COOKIE_SECRET, valueFrom: { secretKeyRef: { name: oauth2-proxy, key: cookie-secret } } }
+          ports: [{ name: http, containerPort: 4180 }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: nx-remote-cache
+spec:
+  selector: { app.kubernetes.io/name: oauth2-proxy }
+  ports: [{ name: http, port: 80, targetPort: http }]

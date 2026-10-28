@@ -17,6 +17,7 @@ async fn main() -> anyhow::Result<()> {
     }
     let state = AppState::new(config.clone(), store);
     let app = router(state.clone());
+    state.spawn_sweeper();
 
     let listener = TcpListener::bind(config.bind)
         .await
@@ -28,6 +29,9 @@ async fn main() -> anyhow::Result<()> {
         location = %state.store.location,
         anonymous = config.allow_anonymous,
         ui = config.ui_enabled,
+        ttl_secs = config.ttl.map(|d| d.as_secs()),
+        max_total_bytes = config.max_total_bytes,
+        max_artifact_bytes = config.max_artifact_bytes,
         "nx-remote-cache listening"
     );
     axum::serve(listener, app)

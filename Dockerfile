@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1.7
+# Three stages: build the dashboard, build a static Rust binary, ship it on `scratch`.
+
+FROM node:24-alpine AS ui
+WORKDIR /ui
+RUN corepack enable
+COPY ui/package.json ui/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY ui/ ./
+RUN pnpm build
+
+FROM rust:1.93-alpine AS build
+RUN apk add --no-cache musl-dev build-base ca-certificates
+WORKDIR /src
+COPY Cargo.toml Cargo.lock build.rs rustfmt.toml ./
+COPY src ./src
+COPY --from=ui /ui/dist ./ui/dist
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target \
+    cargo build --release --locked --bin nx-remote-cache \
+    && cp target/release/nx-remote-cache /nx-remote-cache
+
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /nx-remote-cache /nx-remote-cache
+USER 65534:65534
+ENV PORT=3000 NX_CACHE_BIND=0.0.0.0 NX_CACHE_LOG_FORMAT=json
+EXPOSE 3000
+ENTRYPOINT ["/nx-remote-cache"]

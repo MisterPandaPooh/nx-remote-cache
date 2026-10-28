@@ -1,0 +1,11 @@
+{
+  "Rules": [
+    {
+      "ID": "nx-cache-expire",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "nx-cache/" },
+      "Expiration": { "Days": 30 },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 1 }
+    }
+  ]
+}

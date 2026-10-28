@@ -24,17 +24,60 @@ pub struct Inner {
     pub store: CacheStore,
     pub tokens: Tokens,
     pub stats: Stats,
+    /// Bounds uploads in flight, and with them the server's memory.
+    pub put_permits: tokio::sync::Semaphore,
 }
 
 impl AppState {
     pub fn new(config: Config, store: CacheStore) -> Self {
         let tokens = Tokens::new(&config.rw_tokens, &config.ro_tokens, config.allow_anonymous);
+        let put_permits = tokio::sync::Semaphore::new(config.max_concurrent_puts);
         Self(Arc::new(Inner {
             config,
             store,
             tokens,
             stats: Stats::new(),
+            put_permits,
         }))
+    }
+
+    /// Run one retention pass now (TTL and size cap from the config).
+    pub async fn sweep_once(&self) {
+        let cfg = &self.config;
+        if cfg.ttl.is_none() && cfg.max_total_bytes.is_none() {
+            return;
+        }
+        match self.store.sweep(cfg.ttl, cfg.max_total_bytes).await {
+            Ok(report) => {
+                tracing::info!(
+                    scanned = report.scanned,
+                    deleted = report.deleted,
+                    bytes_freed = report.bytes_freed,
+                    total_bytes = report.total_bytes,
+                    duration_ms = report.duration_ms,
+                    "retention sweep done"
+                );
+                self.stats.record_sweep(report);
+            }
+            Err(e) => tracing::error!(error = %e, "retention sweep failed"),
+        }
+    }
+
+    /// Background loop: a first pass shortly after boot, then every `sweep_interval`.
+    pub fn spawn_sweeper(&self) {
+        let cfg = &self.config;
+        if cfg.ttl.is_none() && cfg.max_total_bytes.is_none() {
+            return;
+        }
+        let state = self.clone();
+        let interval = cfg.sweep_interval;
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            loop {
+                state.sweep_once().await;
+                tokio::time::sleep(interval).await;
+            }
+        });
     }
 }
 

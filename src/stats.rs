@@ -191,6 +191,9 @@ pub struct TimelinePoint {
 
 pub struct Stats {
     pub started_at: DateTime<Utc>,
+    last_sweep: Mutex<Option<crate::store::SweepReport>>,
+    pub swept_objects: AtomicU64,
+    pub swept_bytes: AtomicU64,
     started: Instant,
     pub counters: Counters,
     pub get_hit: Histogram,
@@ -212,6 +215,9 @@ impl Stats {
         let (live, _) = broadcast::channel(512);
         Self {
             started_at: Utc::now(),
+            last_sweep: Mutex::new(None),
+            swept_objects: AtomicU64::new(0),
+            swept_bytes: AtomicU64::new(0),
             started: Instant::now(),
             counters: Counters::default(),
             get_hit: Histogram::default(),
@@ -225,6 +231,16 @@ impl Stats {
 
     pub fn uptime(&self) -> Duration {
         self.started.elapsed()
+    }
+
+    pub fn record_sweep(&self, report: crate::store::SweepReport) {
+        self.swept_objects.fetch_add(report.deleted, Relaxed);
+        self.swept_bytes.fetch_add(report.bytes_freed, Relaxed);
+        *self.last_sweep.lock().unwrap_or_else(|p| p.into_inner()) = Some(report);
+    }
+
+    pub fn last_sweep(&self) -> Option<crate::store::SweepReport> {
+        self.last_sweep.lock().unwrap_or_else(|p| p.into_inner()).clone()
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<Arc<Event>> {
@@ -386,6 +402,12 @@ impl Stats {
         }
         let _ = writeln!(out, "# HELP nx_cache_bytes_served_total Artifact bytes sent to clients.\n# TYPE nx_cache_bytes_served_total counter\nnx_cache_bytes_served_total {}", c.bytes_served);
         let _ = writeln!(out, "# HELP nx_cache_bytes_stored_total Artifact bytes written to the store.\n# TYPE nx_cache_bytes_stored_total counter\nnx_cache_bytes_stored_total {}", c.bytes_stored);
+        let _ = writeln!(out, "# HELP nx_cache_retention_deleted_total Artifacts removed by the retention sweeper.\n# TYPE nx_cache_retention_deleted_total counter\nnx_cache_retention_deleted_total {}", self.swept_objects.load(Relaxed));
+        let _ = writeln!(out, "# HELP nx_cache_retention_freed_bytes_total Bytes removed by the retention sweeper.\n# TYPE nx_cache_retention_freed_bytes_total counter\nnx_cache_retention_freed_bytes_total {}", self.swept_bytes.load(Relaxed));
+        if let Some(sw) = self.last_sweep() {
+            let _ = writeln!(out, "# HELP nx_cache_store_bytes Bytes held under the cache prefix at the last sweep.\n# TYPE nx_cache_store_bytes gauge\nnx_cache_store_bytes {}", sw.total_bytes);
+            let _ = writeln!(out, "# HELP nx_cache_store_objects Artifacts under the cache prefix at the last sweep.\n# TYPE nx_cache_store_objects gauge\nnx_cache_store_objects {}", sw.scanned - sw.deleted);
+        }
         let _ = writeln!(out, "# HELP nx_cache_request_duration_seconds Server-side request latency.\n# TYPE nx_cache_request_duration_seconds histogram");
         for (route, h) in [
             ("get_hit", &self.get_hit),

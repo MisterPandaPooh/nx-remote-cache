@@ -1,0 +1,27 @@
+# Example only: terminate TLS at the ingress and raise the body size limit for big artifacts.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nx-remote-cache
+  namespace: nx-remote-cache
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "2g"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [nx-cache.example.com]
+      secretName: nx-cache-tls
+  rules:
+    - host: nx-cache.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nx-remote-cache
+                port:
+                  name: http

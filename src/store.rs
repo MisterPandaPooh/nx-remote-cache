@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use bytes::{Bytes, BytesMut};
-use futures_util::{Stream, StreamExt};
+use futures_util::{Stream, StreamExt, TryStreamExt};
 use object_store::aws::AmazonS3Builder;
 use object_store::azure::MicrosoftAzureBuilder;
 use object_store::gcp::GoogleCloudStorageBuilder;
@@ -221,6 +221,78 @@ impl CacheStore {
         }
     }
 
+    /// Retention pass: drop artifacts older than `ttl`, then the oldest ones until the prefix
+    /// holds at most 90 % of `max_total_bytes`. Safe to run from several replicas at once.
+    pub async fn sweep(&self, ttl: Option<Duration>, max_total_bytes: Option<u64>) -> Result<SweepReport, StoreError> {
+        let started = std::time::Instant::now();
+        let now = chrono::Utc::now();
+        let mut entries: Vec<(StorePath, u64, chrono::DateTime<chrono::Utc>)> = Vec::new();
+        let mut list = self.inner.list(Some(&self.prefix));
+        while let Some(meta) = list.try_next().await? {
+            if meta.location.filename().is_some_and(|f| f.starts_with('.')) {
+                continue;
+            }
+            entries.push((meta.location, meta.size, meta.last_modified));
+        }
+        let scanned = entries.len() as u64;
+        let mut total: u64 = entries.iter().map(|e| e.1).sum();
+        let mut doomed: Vec<(StorePath, u64)> = Vec::new();
+
+        if let Some(ttl) = ttl {
+            let cutoff = now - chrono::Duration::from_std(ttl).unwrap_or(chrono::Duration::MAX);
+            entries.retain(|(path, size, modified)| {
+                if *modified < cutoff {
+                    doomed.push((path.clone(), *size));
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+        if let Some(max) = max_total_bytes {
+            let live: u64 = entries.iter().map(|e| e.1).sum();
+            if live > max {
+                let target = max / 10 * 9;
+                entries.sort_by_key(|e| e.2);
+                let mut remaining = live;
+                for (path, size, _) in entries {
+                    if remaining <= target {
+                        break;
+                    }
+                    remaining -= size;
+                    doomed.push((path, size));
+                }
+            }
+        }
+
+        let mut deleted = 0u64;
+        let mut bytes_freed = 0u64;
+        if !doomed.is_empty() {
+            let sizes: std::collections::HashMap<StorePath, u64> = doomed.iter().cloned().collect();
+            let paths = futures_util::stream::iter(doomed.into_iter().map(|(p, _)| Ok(p))).boxed();
+            let mut results = self.inner.delete_stream(paths);
+            while let Some(r) = results.next().await {
+                match r {
+                    Ok(path) => {
+                        deleted += 1;
+                        bytes_freed += sizes.get(&path).copied().unwrap_or(0);
+                    }
+                    Err(StoreError::NotFound { .. }) => {}
+                    Err(e) => tracing::warn!(error = %e, "retention delete failed"),
+                }
+            }
+            total = total.saturating_sub(bytes_freed);
+        }
+        Ok(SweepReport {
+            at: now.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            scanned,
+            deleted,
+            bytes_freed,
+            total_bytes: total,
+            duration_ms: started.elapsed().as_millis() as u64,
+        })
+    }
+
     /// Readiness probe: the store answers (a missing probe object is a healthy answer).
     pub async fn probe(&self) -> Result<(), StoreError> {
         match self
@@ -232,6 +304,16 @@ impl CacheStore {
             Err(e) => Err(e),
         }
     }
+}
+
+#[derive(Clone, Debug, Default, serde::Serialize)]
+pub struct SweepReport {
+    pub at: String,
+    pub scanned: u64,
+    pub deleted: u64,
+    pub bytes_freed: u64,
+    pub total_bytes: u64,
+    pub duration_ms: u64,
 }
 
 /// Strip credentials from a URL before showing it anywhere.
@@ -314,6 +396,31 @@ mod tests {
         s.put("fs1", Some(3), body(vec![b"xyz"])).await.unwrap();
         assert_eq!(&s.get("fs1").await.unwrap().unwrap().bytes().await.unwrap()[..], b"xyz");
         s.probe().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sweep_enforces_size_cap_and_ignores_probe_keys() {
+        let s = memory_store(1024).await;
+        for (i, size) in [(0, 100), (1, 100), (2, 100), (3, 100)] {
+            let data: &'static [u8] = Box::leak(vec![i as u8; size].into_boxed_slice());
+            s.put(&format!("h{i}"), Some(size as u64), body(vec![data]))
+                .await
+                .unwrap();
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        let report = s.sweep(None, Some(250)).await.unwrap();
+        assert_eq!(report.scanned, 4);
+        assert_eq!(report.deleted, 2, "{report:?}");
+        assert_eq!(report.total_bytes, 200);
+        assert!(!s.exists("h0").await.unwrap());
+        assert!(!s.exists("h1").await.unwrap());
+        assert!(s.exists("h3").await.unwrap());
+
+        let report = s.sweep(Some(Duration::ZERO), None).await.unwrap();
+        assert_eq!(report.deleted, 2);
+        assert_eq!(report.total_bytes, 0);
+        let report = s.sweep(Some(Duration::from_secs(3600)), Some(1 << 30)).await.unwrap();
+        assert_eq!((report.scanned, report.deleted), (0, 0));
     }
 
     #[test]
