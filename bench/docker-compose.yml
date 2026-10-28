@@ -73,12 +73,12 @@ services:
       CLEANUP_THRESHOLD: 240h
     volumes: ["go-fs-data:/data"]
 
-  # The load generator, run inside the compose network so the host bridge is not the bottleneck:
-  #   docker compose run --rm bench --url http://rust-s3:3000 --token bench ...
+  # The load generator, kept running inside the compose network so the host bridge is not the
+  # bottleneck: docker compose exec bench nx-cache-bench --url http://rust-s3:3000 --token bench ...
   bench:
     image: nx-remote-cache:bench
     profiles: ["tools"]
-    entrypoint: ["/nx-cache-bench"]
+    entrypoint: ["sleep", "infinity"]
 
 volumes:
   go-fs-data:

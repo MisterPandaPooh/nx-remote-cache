@@ -12,15 +12,15 @@ CONC="${CONC:-32}"
 SIZES="${SIZES:-4096 262144 4194304}"
 OUT="${OUT:-RESULTS.md}"
 
-docker compose up -d --wait 2>&1 | tail -3
+if [[ "$IN_DOCKER" == "1" ]]; then docker compose --profile tools up -d --wait 2>&1 | tail -3; else docker compose up -d --wait 2>&1 | tail -3; fi
 
 bench() {
-  if [[ "$IN_DOCKER" == "1" ]]; then docker compose run --rm -T bench "$@"; else "$BENCH_BIN" "$@"; fi
+  if [[ "$IN_DOCKER" == "1" ]]; then docker compose exec -T bench nx-cache-bench "$@"; else "$BENCH_BIN" "$@"; fi
 }
 
 wait_ready() { # url
   for _ in $(seq 1 60); do
-    bench --url "$1" --token bench --requests 1 --concurrency 1 --size 16 2>/dev/null | grep -q "failures 0" && return 0
+    bench --url "$1" --token bench --requests 1 --concurrency 1 --size 16 2>/dev/null | grep -c "failures 0" >/dev/null && return 0
     sleep 1
   done
   echo "server $1 never became ready" >&2; return 1
@@ -64,6 +64,10 @@ for size in $SIZES; do
   } >> "$OUT"
   for t in "${targets[@]}"; do
     IFS='|' read -r id label url <<< "$t"
+    if [[ "$id" == *s3* ]]; then
+      # Fresh, empty S3Mock for every S3 target: a filling store would penalise whoever runs last.
+      docker compose rm -sf s3 >/dev/null 2>&1; docker compose up -d --wait s3 >/dev/null 2>&1
+    fi
     wait_ready "$url" || continue
     echo ">> $label · $size bytes"
     bench --url "$url" --token bench --requests "$REQUESTS" --concurrency "$CONC" --size "$size" | tail -n 3 | tee /dev/stderr | \

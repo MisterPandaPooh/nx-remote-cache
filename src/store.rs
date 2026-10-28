@@ -74,6 +74,9 @@ impl From<StoreError> for PutError {
 pub struct CacheStore {
     inner: Arc<dyn ObjectStore>,
     prefix: StorePath,
+    /// Set for `file://` stores: reads and writes go straight through tokio::fs (streamed,
+    /// no buffering), object_store is kept for listing, deleting and probing.
+    fs_root: Option<std::path::PathBuf>,
     pub kind: &'static str,
     pub location: String,
     inline_threshold: u64,
@@ -106,6 +109,7 @@ impl CacheStore {
             retry_timeout: Duration::from_secs(60),
         };
 
+        let mut fs_root = None;
         let (inner, kind, prefix): (Arc<dyn ObjectStore>, &'static str, StorePath) = match scheme {
             ObjectStoreScheme::Local => {
                 let dir = url
@@ -115,6 +119,7 @@ impl CacheStore {
                     .await
                     .with_context(|| format!("creating {}", dir.display()))?;
                 let fs = LocalFileSystem::new_with_prefix(&dir)?.with_automatic_cleanup(true);
+                fs_root = Some(dir.canonicalize().unwrap_or(dir));
                 (Arc::new(fs), "filesystem", StorePath::default())
             }
             ObjectStoreScheme::Memory => (Arc::new(InMemory::new()), "memory", prefix),
@@ -151,6 +156,7 @@ impl CacheStore {
         Ok(Self {
             inner,
             prefix,
+            fs_root,
             kind,
             location: redact(url),
             inline_threshold: cfg.inline_put_threshold,
@@ -164,6 +170,9 @@ impl CacheStore {
     }
 
     pub async fn exists(&self, hash: &str) -> Result<bool, StoreError> {
+        if let Some(root) = &self.fs_root {
+            return tokio::fs::try_exists(root.join(hash)).await.map_err(io_err);
+        }
         match self.inner.head(&self.key(hash)).await {
             Ok(_) => Ok(true),
             Err(StoreError::NotFound { .. }) => Ok(false),
@@ -172,6 +181,9 @@ impl CacheStore {
     }
 
     pub async fn get(&self, hash: &str) -> Result<Option<GetResult>, StoreError> {
+        if let Some(root) = &self.fs_root {
+            return self.get_fs(root, hash).await;
+        }
         match self.inner.get(&self.key(hash)).await {
             Ok(r) => Ok(Some(r)),
             Err(StoreError::NotFound { .. }) => Ok(None),
@@ -192,6 +204,9 @@ impl CacheStore {
         S: Stream<Item = Result<Bytes, PutError>> + Unpin,
     {
         let key = self.key(hash);
+        if let Some(root) = &self.fs_root {
+            return self.put_fs(root, hash, expected_len, body).await;
+        }
         // Local disks have no metadata; everything else records who produced the artifact.
         let attributes = if self.kind == "filesystem" {
             Attributes::default()
@@ -257,6 +272,95 @@ impl CacheStore {
             }
         }
         writer.finish().await?;
+        Ok(PutOutcome::Created)
+    }
+
+    /// Streamed read straight from disk, 256 KiB chunks, no blocking-pool round trip per read.
+    async fn get_fs(&self, root: &std::path::Path, hash: &str) -> Result<Option<GetResult>, StoreError> {
+        let path = root.join(hash);
+        let file = match tokio::fs::File::open(&path).await {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(io_err(e)),
+        };
+        let meta = file.metadata().await.map_err(io_err)?;
+        let size = meta.len();
+        let last_modified = meta
+            .modified()
+            .map(chrono::DateTime::<chrono::Utc>::from)
+            .unwrap_or_default();
+        let stream = tokio_util::io::ReaderStream::with_capacity(file, 256 << 10).map_err(io_err);
+        Ok(Some(GetResult {
+            payload: object_store::GetResultPayload::Stream(stream.boxed()),
+            meta: object_store::ObjectMeta {
+                location: self.key(hash),
+                last_modified,
+                size,
+                e_tag: None,
+                version: None,
+            },
+            range: 0..size,
+            attributes: Attributes::default(),
+            extensions: Default::default(),
+        }))
+    }
+
+    /// Streamed write to a temp file, then an atomic rename. No fsync: a crash loses at most
+    /// the artifact being written, which Nx simply uploads again.
+    async fn put_fs<S>(
+        &self,
+        root: &std::path::Path,
+        hash: &str,
+        expected_len: Option<u64>,
+        mut body: S,
+    ) -> Result<PutOutcome, PutError>
+    where
+        S: Stream<Item = Result<Bytes, PutError>> + Unpin,
+    {
+        use tokio::io::AsyncWriteExt;
+        let final_path = root.join(hash);
+        if tokio::fs::try_exists(&final_path).await.unwrap_or(false) {
+            while let Some(chunk) = body.next().await {
+                chunk?;
+            }
+            return Ok(PutOutcome::AlreadyExists);
+        }
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        // Dot-prefixed so the retention sweep ignores it while it is being written.
+        let tmp = root.join(format!(".{hash}.{nonce}.tmp"));
+        let file = tokio::fs::File::create(&tmp).await.map_err(io_err)?;
+        let mut writer = tokio::io::BufWriter::with_capacity(256 << 10, file);
+        let mut received: u64 = 0;
+        let result: Result<(), PutError> = async {
+            while let Some(chunk) = body.next().await {
+                let chunk = chunk?;
+                received += chunk.len() as u64;
+                writer.write_all(&chunk).await.map_err(io_err)?;
+            }
+            writer.flush().await.map_err(io_err)?;
+            if let Some(expected) = expected_len {
+                if received != expected {
+                    return Err(PutError::BadBody(format!(
+                        "announced {expected} bytes, received {received}"
+                    )));
+                }
+            }
+            Ok(())
+        }
+        .await;
+        drop(writer);
+        if let Err(e) = result {
+            let _ = tokio::fs::remove_file(&tmp).await;
+            return Err(e);
+        }
+        if tokio::fs::try_exists(&final_path).await.unwrap_or(false) {
+            let _ = tokio::fs::remove_file(&tmp).await;
+            return Ok(PutOutcome::AlreadyExists);
+        }
+        tokio::fs::rename(&tmp, &final_path).await.map_err(io_err)?;
         Ok(PutOutcome::Created)
     }
 
@@ -355,6 +459,13 @@ impl CacheStore {
             Ok(_) | Err(StoreError::NotFound { .. }) => Ok(()),
             Err(e) => Err(e),
         }
+    }
+}
+
+fn io_err(e: std::io::Error) -> StoreError {
+    StoreError::Generic {
+        store: "filesystem",
+        source: Box::new(e),
     }
 }
 
@@ -492,6 +603,40 @@ mod tests {
         assert_eq!(report.total_bytes, 0);
         let report = s.sweep(Some(Duration::from_secs(3600)), Some(1 << 30)).await.unwrap();
         assert_eq!((report.scanned, report.deleted), (0, 0));
+    }
+
+    #[tokio::test]
+    async fn filesystem_fast_path_is_create_only_and_streams() {
+        let dir = tempfile::tempdir().unwrap();
+        let url = Url::from_directory_path(dir.path()).unwrap();
+        let s = CacheStore::open(&Config::for_tests(url.as_str())).await.unwrap();
+        let data: Vec<u8> = (0..(3 << 20)).map(|i| (i % 199) as u8).collect();
+        let leaked: &'static [u8] = Box::leak(data.clone().into_boxed_slice());
+        let chunks: Vec<&'static [u8]> = leaked.chunks(64 << 10).collect();
+        let ctx = RequestContext::new();
+        assert_eq!(
+            s.put("big", Some(data.len() as u64), body(chunks.clone()), &ctx)
+                .await
+                .unwrap(),
+            PutOutcome::Created
+        );
+        assert_eq!(
+            s.put("big", None, body(chunks), &ctx).await.unwrap(),
+            PutOutcome::AlreadyExists
+        );
+        let got = s.get("big").await.unwrap().unwrap();
+        assert_eq!(got.meta.size, data.len() as u64);
+        assert_eq!(&got.bytes().await.unwrap()[..], &data[..]);
+        // A truncated upload leaves nothing behind.
+        let err = s.put("short", Some(10), body(vec![b"abc"]), &ctx).await.unwrap_err();
+        assert!(matches!(err, PutError::BadBody(_)));
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(leftovers.len(), 1, "{leftovers:?}");
+        assert!(!s.exists("short").await.unwrap());
+        assert!(s.get("missing").await.unwrap().is_none());
     }
 
     #[tokio::test]

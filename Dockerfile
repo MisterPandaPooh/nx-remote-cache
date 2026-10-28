@@ -21,12 +21,13 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     && cp target/release/nx-remote-cache /nx-remote-cache \
     && cp target/release/nx-cache-bench /nx-cache-bench
 
-# Load generator, same static build (docker build --target bench -t nx-remote-cache:bench .)
-FROM scratch AS bench
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=build /nx-cache-bench /nx-cache-bench
+# Load generator, same static build, on alpine so the benchmark can `exec` into a long-lived
+# container (docker build --target bench -t nx-remote-cache:bench .)
+FROM alpine:3.21 AS bench
+RUN apk add --no-cache ca-certificates
+COPY --from=build /nx-cache-bench /usr/local/bin/nx-cache-bench
 USER 65534:65534
-ENTRYPOINT ["/nx-cache-bench"]
+ENTRYPOINT ["nx-cache-bench"]
 
 FROM scratch AS server
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
