@@ -1,0 +1,61 @@
+# HTTP API
+
+## Nx cache endpoints (spec: https://nx.dev/docs/kb/self-hosted-caching)
+
+| Method | Path | Auth | Responses |
+|---|---|---|---|
+| `PUT` | `/v1/cache/{hash}` | Bearer (rw) | 200 stored · 401 bad token · 403 read-only token · 409 exists · 413 too large · 411 no Content-Length |
+| `GET` | `/v1/cache/{hash}` | Bearer (rw or ro) | 200 `application/octet-stream` · 401 · 404 miss |
+
+`hash` must match `^[A-Za-z0-9_-]{1,128}$`, else 400.
+
+## Ops
+
+| Path | Purpose |
+|---|---|
+| `GET /healthz` | process alive → `200 ok` |
+| `GET /readyz` | store reachable (HEAD on a probe key) → `200 ok` or `503` |
+| `GET /metrics` | Prometheus text format |
+
+## Dashboard API (consumed by `ui/`)
+
+All JSON. No auth unless `NX_CACHE_UI_TOKEN` is set (then `Authorization: Bearer` or `?token=`).
+
+### `GET /api/v1/stats`
+
+```json
+{
+  "version": "0.1.0",
+  "uptime_seconds": 12345,
+  "started_at": "2026-10-29T10:00:00Z",
+  "store": { "kind": "azure", "location": "az://nx-cache/" },
+  "pod": "nx-remote-cache-7d9f-abcde",
+  "counters": {
+    "hits": 1200, "misses": 300, "puts": 290, "conflicts": 4,
+    "unauthorized": 0, "forbidden": 1, "errors": 0,
+    "bytes_served": 123456789, "bytes_stored": 98765432
+  },
+  "latency_ms": {
+    "get_hit":  { "p50": 3.1, "p90": 12.0, "p99": 40.0, "count": 1200 },
+    "get_miss": { "p50": 0.8, "p90": 1.5, "p99": 3.0, "count": 300 },
+    "put":      { "p50": 25.0, "p90": 120.0, "p99": 400.0, "count": 290 }
+  },
+  "timeline": [
+    { "ts": "2026-10-29T10:00:00Z", "hits": 10, "misses": 2, "puts": 2, "bytes_served": 1000, "bytes_stored": 500 }
+  ]
+}
+```
+
+`timeline` = last 24 h in 5-minute buckets (288 entries, oldest first, zero-filled).
+
+### `GET /api/v1/events?limit=100`
+
+```json
+{ "events": [ { "ts": "2026-10-29T10:00:00.123Z", "kind": "hit", "hash": "abc…", "bytes": 1234, "ms": 3.2, "status": 200 } ] }
+```
+
+`kind` ∈ `hit | miss | put | conflict | forbidden | unauthorized | error`. Newest first.
+
+### `GET /api/v1/events/stream`
+
+Server-Sent Events; each `data:` line is one event object as above.
