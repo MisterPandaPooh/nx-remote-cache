@@ -1,0 +1,68 @@
+name: nx-remote-cache
+description: >-
+  Use an nx-remote-cache server as a generic CI cache (like actions/cache): restore a tarball of
+  `path` by `key`, and save it at the end of the job if the key was missing. Keys are immutable,
+  so put a content hash in them.
+inputs:
+  server:
+    description: Base URL of the cache server, e.g. https://nx-cache.example.com
+    required: true
+  token:
+    description: Bearer token (read-write to save, read-only to restore only)
+    required: true
+  key:
+    description: Cache key, [A-Za-z0-9_-]{1,128}. Include a hash, e.g. node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+    required: true
+  path:
+    description: Newline-separated paths to cache
+    required: true
+  save:
+    description: Upload on job end when the key was not found (true/false)
+    default: "true"
+outputs:
+  cache-hit:
+    description: "true when the key was restored"
+    value: ${{ steps.restore.outputs.hit }}
+runs:
+  using: composite
+  steps:
+    - id: restore
+      shell: bash
+      env:
+        SERVER: ${{ inputs.server }}
+        TOKEN: ${{ inputs.token }}
+        KEY: ${{ inputs.key }}
+      run: |
+        set -euo pipefail
+        [[ "$KEY" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { echo "invalid key: $KEY" >&2; exit 1; }
+        code=$(curl -sS -o /tmp/nxrc-cache.tar.zst -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$SERVER/v1/cache/$KEY")
+        if [[ "$code" == "200" ]]; then
+          tar --zstd -xf /tmp/nxrc-cache.tar.zst
+          echo "hit=true" >> "$GITHUB_OUTPUT"; echo "::notice::nx-remote-cache: restored $KEY"
+        elif [[ "$code" == "404" ]]; then
+          echo "hit=false" >> "$GITHUB_OUTPUT"; echo "nx-remote-cache: miss for $KEY"
+        else
+          echo "::warning::nx-remote-cache: restore returned HTTP $code, continuing without cache"; echo "hit=false" >> "$GITHUB_OUTPUT"
+        fi
+    - uses: pyTooling/Actions/with-post-step@v1
+      if: inputs.save == 'true' && steps.restore.outputs.hit != 'true'
+      with:
+        main: "true"
+        post: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          mapfile -t paths <<< "$NXRC_PATHS"
+          tar --zstd -cf /tmp/nxrc-save.tar.zst "${paths[@]}"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X PUT -H "Authorization: Bearer $NXRC_TOKEN" \
+            -H "Content-Type: application/octet-stream" --data-binary @/tmp/nxrc-save.tar.zst "$NXRC_SERVER/v1/cache/$NXRC_KEY")
+          case "$code" in
+            200) echo "nx-remote-cache: saved $NXRC_KEY ($(du -h /tmp/nxrc-save.tar.zst | cut -f1))";;
+            409) echo "nx-remote-cache: $NXRC_KEY already saved by another job";;
+            403) echo "nx-remote-cache: token is read-only, not saving";;
+            *)   echo "::warning::nx-remote-cache: save returned HTTP $code";;
+          esac
+      env:
+        NXRC_SERVER: ${{ inputs.server }}
+        NXRC_TOKEN: ${{ inputs.token }}
+        NXRC_KEY: ${{ inputs.key }}
+        NXRC_PATHS: ${{ inputs.path }}

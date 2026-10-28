@@ -11,9 +11,39 @@ use object_store::local::LocalFileSystem;
 use object_store::memory::InMemory;
 use object_store::path::Path as StorePath;
 use object_store::{
-    BackoffConfig, ClientOptions, Error as StoreError, GetResult, ObjectStore, ObjectStoreExt, ObjectStoreScheme,
-    PutMode, PutOptions, PutPayload, RetryConfig, WriteMultipart,
+    Attribute, Attributes, BackoffConfig, ClientOptions, Error as StoreError, GetResult, ObjectStore, ObjectStoreExt,
+    ObjectStoreScheme, PutMode, PutMultipartOptions, PutOptions, PutPayload, RetryConfig, WriteMultipart,
 };
+
+use crate::auth::Context as RequestContext;
+
+/// Prefix for the user-defined metadata keys written next to an artifact.
+const META_PREFIX: &str = "nx_";
+
+/// Turn a request context into store metadata (`x-ms-meta-nx_run: 123` on Azure).
+pub fn attributes_from(ctx: &RequestContext) -> Attributes {
+    ctx.iter()
+        .map(|(k, v): (&String, &String)| {
+            (
+                Attribute::Metadata(format!("{META_PREFIX}{k}").into()),
+                object_store::AttributeValue::from(v.clone()),
+            )
+        })
+        .collect()
+}
+
+/// Read back the context an artifact was uploaded with.
+pub fn origin_from(attrs: &Attributes) -> RequestContext {
+    attrs
+        .iter()
+        .filter_map(|(k, v)| match k {
+            Attribute::Metadata(name) => name
+                .strip_prefix(META_PREFIX)
+                .map(|n| (n.to_owned(), v.as_ref().to_owned())),
+            _ => None,
+        })
+        .collect()
+}
 use url::Url;
 
 use crate::config::Config;
@@ -151,11 +181,23 @@ impl CacheStore {
 
     /// Write an artifact. Small bodies use one atomic create; large ones stream through a
     /// multipart upload. `expected_len` is the announced Content-Length, when known.
-    pub async fn put<S>(&self, hash: &str, expected_len: Option<u64>, mut body: S) -> Result<PutOutcome, PutError>
+    pub async fn put<S>(
+        &self,
+        hash: &str,
+        expected_len: Option<u64>,
+        mut body: S,
+        context: &RequestContext,
+    ) -> Result<PutOutcome, PutError>
     where
         S: Stream<Item = Result<Bytes, PutError>> + Unpin,
     {
         let key = self.key(hash);
+        // Local disks have no metadata; everything else records who produced the artifact.
+        let attributes = if self.kind == "filesystem" {
+            Attributes::default()
+        } else {
+            attributes_from(context)
+        };
         if expected_len.is_some_and(|n| n <= self.inline_threshold) {
             let expected = expected_len.unwrap_or(0) as usize;
             let mut buf = BytesMut::with_capacity(expected);
@@ -168,7 +210,7 @@ impl CacheStore {
                     buf.len()
                 )));
             }
-            return self.put_inline(&key, buf.freeze()).await;
+            return self.put_inline(&key, buf.freeze(), attributes).await;
         }
 
         // Multipart: cheap existence check first so a duplicate is not uploaded to the store.
@@ -179,7 +221,16 @@ impl CacheStore {
             }
             return Ok(PutOutcome::AlreadyExists);
         }
-        let upload = self.inner.put_multipart(&key).await?;
+        let upload = self
+            .inner
+            .put_multipart_opts(
+                &key,
+                PutMultipartOptions {
+                    attributes,
+                    ..Default::default()
+                },
+            )
+            .await?;
         let mut writer = WriteMultipart::new_with_chunk_size(upload, self.chunk_bytes);
         let mut received: u64 = 0;
         while let Some(chunk) = body.next().await {
@@ -209,9 +260,10 @@ impl CacheStore {
         Ok(PutOutcome::Created)
     }
 
-    async fn put_inline(&self, key: &StorePath, data: Bytes) -> Result<PutOutcome, PutError> {
+    async fn put_inline(&self, key: &StorePath, data: Bytes, attributes: Attributes) -> Result<PutOutcome, PutError> {
         let opts = PutOptions {
             mode: PutMode::Create,
+            attributes,
             ..Default::default()
         };
         match self.inner.put_opts(key, PutPayload::from(data), opts).await {
@@ -344,11 +396,15 @@ mod tests {
     async fn inline_put_is_create_only() {
         let s = memory_store(1024).await;
         assert_eq!(
-            s.put("h1", Some(3), body(vec![b"abc"])).await.unwrap(),
+            s.put("h1", Some(3), body(vec![b"abc"]), &RequestContext::new())
+                .await
+                .unwrap(),
             PutOutcome::Created
         );
         assert_eq!(
-            s.put("h1", Some(3), body(vec![b"abc"])).await.unwrap(),
+            s.put("h1", Some(3), body(vec![b"abc"]), &RequestContext::new())
+                .await
+                .unwrap(),
             PutOutcome::AlreadyExists
         );
         assert!(s.exists("h1").await.unwrap());
@@ -360,7 +416,10 @@ mod tests {
     #[tokio::test]
     async fn inline_put_rejects_length_mismatch() {
         let s = memory_store(1024).await;
-        let err = s.put("h2", Some(5), body(vec![b"abc"])).await.unwrap_err();
+        let err = s
+            .put("h2", Some(5), body(vec![b"abc"]), &RequestContext::new())
+            .await
+            .unwrap_err();
         assert!(matches!(err, PutError::BadBody(_)));
         assert!(!s.exists("h2").await.unwrap());
     }
@@ -372,13 +431,18 @@ mod tests {
         let leaked: &'static [u8] = Box::leak(data.clone().into_boxed_slice());
         let chunks: Vec<&'static [u8]> = leaked.chunks(1 << 16).collect();
         assert_eq!(
-            s.put("big", Some(data.len() as u64), body(chunks.clone()))
-                .await
-                .unwrap(),
+            s.put(
+                "big",
+                Some(data.len() as u64),
+                body(chunks.clone()),
+                &RequestContext::new()
+            )
+            .await
+            .unwrap(),
             PutOutcome::Created
         );
         assert_eq!(
-            s.put("big", None, body(chunks)).await.unwrap(),
+            s.put("big", None, body(chunks), &RequestContext::new()).await.unwrap(),
             PutOutcome::AlreadyExists
         );
         let got = s.get("big").await.unwrap().unwrap().bytes().await.unwrap();
@@ -393,7 +457,9 @@ mod tests {
         let cfg = Config::for_tests(url.as_str());
         let s = CacheStore::open(&cfg).await.unwrap();
         assert_eq!(s.kind, "filesystem");
-        s.put("fs1", Some(3), body(vec![b"xyz"])).await.unwrap();
+        s.put("fs1", Some(3), body(vec![b"xyz"]), &RequestContext::new())
+            .await
+            .unwrap();
         assert_eq!(&s.get("fs1").await.unwrap().unwrap().bytes().await.unwrap()[..], b"xyz");
         s.probe().await.unwrap();
     }
@@ -403,9 +469,14 @@ mod tests {
         let s = memory_store(1024).await;
         for (i, size) in [(0, 100), (1, 100), (2, 100), (3, 100)] {
             let data: &'static [u8] = Box::leak(vec![i as u8; size].into_boxed_slice());
-            s.put(&format!("h{i}"), Some(size as u64), body(vec![data]))
-                .await
-                .unwrap();
+            s.put(
+                &format!("h{i}"),
+                Some(size as u64),
+                body(vec![data]),
+                &RequestContext::new(),
+            )
+            .await
+            .unwrap();
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
         let report = s.sweep(None, Some(250)).await.unwrap();
@@ -421,6 +492,18 @@ mod tests {
         assert_eq!(report.total_bytes, 0);
         let report = s.sweep(Some(Duration::from_secs(3600)), Some(1 << 30)).await.unwrap();
         assert_eq!((report.scanned, report.deleted), (0, 0));
+    }
+
+    #[tokio::test]
+    async fn metadata_roundtrip_on_object_stores() {
+        let s = memory_store(1024).await;
+        let ctx: RequestContext = [("run", "42"), ("repo", "org/app")]
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect();
+        s.put("meta", Some(3), body(vec![b"abc"]), &ctx).await.unwrap();
+        let got = s.get("meta").await.unwrap().unwrap();
+        assert_eq!(origin_from(&got.attributes), ctx);
     }
 
     #[test]

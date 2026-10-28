@@ -105,8 +105,10 @@ pub fn router(state: AppState) -> Router {
         .route("/metrics", get(routes::metrics))
         .merge(api);
 
+    // The dashboard shell and its hashed assets are public; everything it shows comes from
+    // /api/v1/*, which is behind the guard. The shell asks for a token when it gets a 401.
     if state.config.ui_enabled {
-        app = app.fallback(get(ui::serve).route_layer(middleware::from_fn_with_state(state.clone(), routes::ui_guard)));
+        app = app.fallback(get(ui::serve));
     }
 
     app.layer(DefaultBodyLimit::disable())

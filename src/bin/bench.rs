@@ -149,6 +149,21 @@ where
     F: Fn(reqwest::Client, usize) -> Fut,
     Fut: std::future::Future<Output = Result<(u16, u64), reqwest::Error>> + Send + 'static,
 {
+    let expected = if name == "GET miss" { 404 } else { 200 };
+    run_expecting(args, client, name, expected, make).await
+}
+
+async fn run_expecting<F, Fut>(
+    args: &Arc<Args>,
+    client: &reqwest::Client,
+    name: &'static str,
+    expected: u16,
+    make: F,
+) -> Phase
+where
+    F: Fn(reqwest::Client, usize) -> Fut,
+    Fut: std::future::Future<Output = Result<(u16, u64), reqwest::Error>> + Send + 'static,
+{
     let sem = Arc::new(Semaphore::new(args.concurrency));
     let start = Instant::now();
     let mut tasks = Vec::with_capacity(args.requests);
@@ -166,7 +181,7 @@ where
         name,
         ..Default::default()
     };
-    let expected_ok = |s: u16| matches!(s, 200 | 404);
+    let expected_ok = |s: u16| s == expected;
     for t in tasks {
         if let Ok((lat, r)) = t.await {
             match r {

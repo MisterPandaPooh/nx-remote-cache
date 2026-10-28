@@ -54,6 +54,12 @@ pub struct Event {
     pub bytes: u64,
     pub ms: f64,
     pub status: u16,
+    /// Context the requester sent with its token (e.g. the CI run reading the cache).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ctx: Option<crate::auth::Context>,
+    /// Context recorded when the artifact was uploaded (the run that produced it).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<crate::auth::Context>,
 }
 
 #[derive(Default)]
@@ -248,6 +254,20 @@ impl Stats {
     }
 
     pub fn record(&self, kind: Kind, hash: &str, bytes: u64, elapsed: Duration, status: u16) {
+        self.record_full(kind, hash, bytes, elapsed, status, None, None);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_full(
+        &self,
+        kind: Kind,
+        hash: &str,
+        bytes: u64,
+        elapsed: Duration,
+        status: u16,
+        ctx: Option<crate::auth::Context>,
+        origin: Option<crate::auth::Context>,
+    ) {
         let c = &self.counters;
         match kind {
             Kind::Hit => {
@@ -289,6 +309,8 @@ impl Stats {
             bytes,
             ms: round(elapsed.as_secs_f64() * 1000.0),
             status,
+            ctx: ctx.filter(|c| !c.is_empty()),
+            origin: origin.filter(|c| !c.is_empty()),
         });
         {
             let mut ring = self.events.lock().unwrap_or_else(|p| p.into_inner());

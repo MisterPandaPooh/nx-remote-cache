@@ -1,0 +1,78 @@
+# Comparative benchmark: every server runs in a container on this machine, hit by
+# `nx-cache-bench` from the host. Two arenas:
+#   - object storage: nx-remote-cache vs nx-cache-server (Deno), both on the same S3 bucket (S3Mock)
+#   - local disk:     nx-remote-cache (file://) vs nx-caching-server (Go)
+services:
+  s3:
+    # S3-compatible object store (MinIO no longer publishes community images).
+    image: adobe/s3mock:latest
+    environment:
+      initialBuckets: nx-cache
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: nx-cache
+      debug: "false"
+    ports: ["9090:9090"]
+
+  rust-s3:
+    image: nx-remote-cache:dev
+    depends_on: [s3]
+    ports: ["3101:3000"]
+    environment:
+      NX_CACHE_STORE_URL: s3://nx-cache/
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
+      AWS_ENDPOINT: http://s3:9090
+      AWS_ALLOW_HTTP: "true"
+      AWS_REGION: us-east-1
+      NX_CACHE_TOKEN: bench
+      NX_CACHE_MEMORY_CACHE_BYTES: "0"   # pure store path, apples to apples
+      RUST_LOG: warn
+
+  rust-s3-memtier:
+    image: nx-remote-cache:dev
+    depends_on: [s3]
+    ports: ["3102:3000"]
+    environment:
+      NX_CACHE_STORE_URL: s3://nx-cache/
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
+      AWS_ENDPOINT: http://s3:9090
+      AWS_ALLOW_HTTP: "true"
+      AWS_REGION: us-east-1
+      NX_CACHE_TOKEN: bench
+      RUST_LOG: warn
+
+  deno-s3:
+    image: ghcr.io/ikatsuba/nx-cache-server:latest
+    depends_on: [s3]
+    ports: ["3201:3000"]
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
+      S3_BUCKET_NAME: nx-cache
+      S3_ENDPOINT_URL: http://s3:9090
+      NX_CACHE_ACCESS_TOKEN: bench
+      PORT: "3000"
+
+  rust-fs:
+    image: nx-remote-cache:dev
+    ports: ["3103:3000"]
+    environment:
+      NX_CACHE_STORE_URL: file:///data
+      NX_CACHE_TOKEN: bench
+      NX_CACHE_MEMORY_CACHE_BYTES: "0"
+      RUST_LOG: warn
+    # tmpfs owned by the server's uid: a named volume would be root-owned and unwritable.
+    tmpfs: ["/data:uid=65534,gid=65534"]
+
+  go-fs:
+    image: enxtur/nx-caching-server:latest
+    ports: ["3301:8090"]
+    environment:
+      STORAGE_DIR: /data
+      AUTH_TOKEN: bench
+      CLEANUP_THRESHOLD: 240h
+    volumes: ["go-fs-data:/data"]
+
+volumes:
+  go-fs-data:

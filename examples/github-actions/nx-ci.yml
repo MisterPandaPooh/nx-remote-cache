@@ -1,0 +1,55 @@
+# Nx CI with the self-hosted remote cache.
+# - every job reads from the cache;
+# - jobs on main write; pull-request jobs get the read-only token so a fork cannot poison the cache;
+# - the job summary shows the server's hit rate afterwards;
+# - a warm job rebuilds main right after a merge so the next PRs start hot.
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+
+env:
+  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: https://nx-cache.example.com
+  NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'pull_request' && secrets.NX_CACHE_READ_TOKEN || secrets.NX_CACHE_TOKEN }}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+
+      # The same server as a generic cache for node_modules (outside Nx):
+      - uses: MisterPandaPooh/nx-remote-cache/.github/actions/cache@main
+        id: deps
+        with:
+          server: ${{ env.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
+          token: ${{ env.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+          key: node-modules-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          path: node_modules
+      - if: steps.deps.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - uses: nrwl/nx-set-shas@v4
+      - run: pnpm nx affected -t lint test build --parallel=4
+
+      - name: Remote cache summary
+        if: always()
+        run: |
+          stats=$(curl -sS -H "Authorization: Bearer $NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN" "$NX_SELF_HOSTED_REMOTE_CACHE_SERVER/api/v1/stats")
+          echo "$stats" | jq -r '"### Remote cache\n\n| hits | misses | puts | served | stored |\n|---:|---:|---:|---:|---:|\n| \(.counters.hits) | \(.counters.misses) | \(.counters.puts) | \(.counters.bytes_served/1048576|floor) MB | \(.counters.bytes_stored/1048576|floor) MB |"' >> "$GITHUB_STEP_SUMMARY"
+
+  warm:
+    if: github.event_name == 'push'
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm nx run-many -t build test --parallel=4

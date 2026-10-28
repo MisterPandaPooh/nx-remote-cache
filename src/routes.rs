@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::app::{AppState, VERSION};
-use crate::auth::{Access, AuthError, Tokens};
+use crate::auth::{Access, AuthError, Authenticated, Context, Tokens};
 use crate::stats::{Event, Kind, LatencySummary, TimelinePoint};
 use crate::store::{PutError, PutOutcome};
 
@@ -38,7 +38,7 @@ pub fn valid_hash(hash: &str) -> bool {
 }
 
 #[allow(clippy::result_large_err)]
-fn authenticate(state: &AppState, headers: &HeaderMap, hash: &str, start: Instant) -> Result<Access, Response> {
+fn authenticate(state: &AppState, headers: &HeaderMap, hash: &str, start: Instant) -> Result<Authenticated, Response> {
     let auth = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok());
     state.tokens.authenticate(auth).map_err(|e| {
         state.stats.record(Kind::Unauthorized, hash, 0, start.elapsed(), 401);
@@ -60,13 +60,23 @@ pub async fn get_artifact(State(state): State<AppState>, Path(hash): Path<String
     if !valid_hash(&hash) {
         return text(StatusCode::BAD_REQUEST, "nx-remote-cache: invalid cache hash");
     }
-    if let Err(res) = authenticate(&state, &headers, &hash, start) {
-        return res;
-    }
-    if let Some(data) = state.memcache.get(&hash) {
-        let len = data.len() as u64;
-        state.stats.record(Kind::Hit, &hash, len, start.elapsed(), 200);
-        let mut res = Response::new(Body::from(data));
+    let auth = match authenticate(&state, &headers, &hash, start) {
+        Ok(a) => a,
+        Err(res) => return res,
+    };
+    let ctx = auth.context;
+    if let Some(entry) = state.memcache.get(&hash) {
+        let len = entry.data.len() as u64;
+        state.stats.record_full(
+            Kind::Hit,
+            &hash,
+            len,
+            start.elapsed(),
+            200,
+            Some(ctx),
+            Some((*entry.origin).clone()),
+        );
+        let mut res = Response::new(Body::from(entry.data));
         let h = res.headers_mut();
         h.insert(header::CONTENT_TYPE, OCTET_STREAM);
         h.insert(header::CONTENT_LENGTH, HeaderValue::from(len));
@@ -84,12 +94,21 @@ pub async fn get_artifact(State(state): State<AppState>, Path(hash): Path<String
         Ok(Some(result)) => {
             let len = result.meta.size;
             let etag = result.meta.e_tag.clone();
-            state.stats.record(Kind::Hit, &hash, len, start.elapsed(), 200);
+            let origin = crate::store::origin_from(&result.attributes);
+            state.stats.record_full(
+                Kind::Hit,
+                &hash,
+                len,
+                start.elapsed(),
+                200,
+                Some(ctx),
+                Some(origin.clone()),
+            );
             let body = if len <= state.config.memory_cache_max_item && state.memcache.enabled() {
                 // Small enough to keep: read it once, remember it, serve it.
                 match result.bytes().await {
                     Ok(data) => {
-                        state.memcache.insert(&hash, data.clone());
+                        state.memcache.insert(&hash, data.clone(), origin);
                         Body::from(data)
                     }
                     Err(e) => {
@@ -121,7 +140,9 @@ pub async fn get_artifact(State(state): State<AppState>, Path(hash): Path<String
             res
         }
         Ok(None) => {
-            state.stats.record(Kind::Miss, &hash, 0, start.elapsed(), 404);
+            state
+                .stats
+                .record_full(Kind::Miss, &hash, 0, start.elapsed(), 404, Some(ctx), None);
             StatusCode::NOT_FOUND.into_response()
         }
         Err(e) => {
@@ -147,9 +168,15 @@ pub async fn put_artifact(
     }
     // Early answers still read the body first: closing the socket with unread bytes makes the
     // kernel send a RST, and the Nx client then sees a network error instead of our status.
-    match authenticate(&state, &headers, &hash, start) {
-        Ok(Access::ReadWrite) => {}
-        Ok(Access::ReadOnly) => {
+    let ctx: Context = match authenticate(&state, &headers, &hash, start) {
+        Ok(Authenticated {
+            access: Access::ReadWrite,
+            context,
+        }) => context,
+        Ok(Authenticated {
+            access: Access::ReadOnly,
+            ..
+        }) => {
             state.stats.record(Kind::Forbidden, &hash, 0, start.elapsed(), 403);
             drain(body, DRAIN_BUDGET).await;
             return text(
@@ -161,7 +188,7 @@ pub async fn put_artifact(
             drain(body, DRAIN_BUDGET).await;
             return res;
         }
-    }
+    };
 
     let max = state.config.max_artifact_bytes;
     let expected = match headers
@@ -195,23 +222,31 @@ pub async fn put_artifact(
             .reserve(expected.unwrap_or(0) as usize);
         let teed =
             counted.inspect_ok(move |chunk| sink.lock().unwrap_or_else(|p| p.into_inner()).extend_from_slice(chunk));
-        state.store.put(&hash, expected, Box::pin(teed)).await
+        state.store.put(&hash, expected, Box::pin(teed), &ctx).await
     } else {
-        state.store.put(&hash, expected, counted).await
+        state.store.put(&hash, expected, counted, &ctx).await
     };
     match outcome {
         Ok(PutOutcome::Created) => {
             if keep {
                 let data = std::mem::take(&mut *tee.lock().unwrap_or_else(|p| p.into_inner()));
-                state.memcache.insert(&hash, Bytes::from(data));
+                state.memcache.insert(&hash, Bytes::from(data), ctx.clone());
             }
-            state
-                .stats
-                .record(Kind::Put, &hash, expected.unwrap_or(0), start.elapsed(), 200);
+            state.stats.record_full(
+                Kind::Put,
+                &hash,
+                expected.unwrap_or(0),
+                start.elapsed(),
+                200,
+                Some(ctx.clone()),
+                Some(ctx),
+            );
             StatusCode::OK.into_response()
         }
         Ok(PutOutcome::AlreadyExists) => {
-            state.stats.record(Kind::Conflict, &hash, 0, start.elapsed(), 409);
+            state
+                .stats
+                .record_full(Kind::Conflict, &hash, 0, start.elapsed(), 409, Some(ctx), None);
             text(StatusCode::CONFLICT, "nx-remote-cache: artifact already exists")
         }
         Err(PutError::TooLarge) => {

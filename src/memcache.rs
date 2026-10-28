@@ -5,7 +5,17 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 use std::sync::Mutex;
 
+use std::sync::Arc;
+
 use bytes::Bytes;
+
+use crate::auth::Context;
+
+#[derive(Clone)]
+pub struct Entry {
+    pub data: Bytes,
+    pub origin: Arc<Context>,
+}
 
 pub struct MemCache {
     budget: u64,
@@ -17,7 +27,7 @@ pub struct MemCache {
 
 #[derive(Default)]
 struct Inner {
-    map: HashMap<String, (Bytes, u64)>, // value, generation
+    map: HashMap<String, (Entry, u64)>, // value, generation
     order: VecDeque<(String, u64)>,     // (key, generation) oldest first; stale pairs are skipped
     bytes: u64,
     generation: u64,
@@ -39,7 +49,7 @@ impl MemCache {
         self.budget > 0
     }
 
-    pub fn get(&self, key: &str) -> Option<Bytes> {
+    pub fn get(&self, key: &str) -> Option<Entry> {
         if !self.enabled() {
             return None;
         }
@@ -62,7 +72,7 @@ impl MemCache {
         found
     }
 
-    pub fn insert(&self, key: &str, data: Bytes) {
+    pub fn insert(&self, key: &str, data: Bytes, origin: Context) {
         let len = data.len() as u64;
         if !self.enabled() || len > self.max_item || len > self.budget {
             return;
@@ -73,7 +83,16 @@ impl MemCache {
         }
         let generation = inner.generation + 1;
         inner.generation = generation;
-        inner.map.insert(key.to_owned(), (data, generation));
+        inner.map.insert(
+            key.to_owned(),
+            (
+                Entry {
+                    data,
+                    origin: Arc::new(origin),
+                },
+                generation,
+            ),
+        );
         inner.order.push_back((key.to_owned(), generation));
         inner.bytes += len;
         while inner.bytes > self.budget {
@@ -83,7 +102,7 @@ impl MemCache {
             let live = inner.map.get(&old_key).is_some_and(|(_, g)| *g == gen);
             if live {
                 if let Some((old, _)) = inner.map.remove(&old_key) {
-                    inner.bytes -= old.len() as u64;
+                    inner.bytes -= old.data.len() as u64;
                 }
             }
         }
@@ -97,7 +116,7 @@ impl MemCache {
     pub fn remove(&self, key: &str) {
         let mut inner = self.inner.lock().unwrap_or_else(|p| p.into_inner());
         if let Some((old, _)) = inner.map.remove(key) {
-            inner.bytes -= old.len() as u64;
+            inner.bytes -= old.data.len() as u64;
         }
     }
 
@@ -133,12 +152,12 @@ mod tests {
     #[test]
     fn evicts_least_recently_used_within_budget() {
         let c = MemCache::new(300, 200);
-        c.insert("a", Bytes::from(vec![0; 100]));
-        c.insert("b", Bytes::from(vec![0; 100]));
-        c.insert("c", Bytes::from(vec![0; 100]));
+        c.insert("a", Bytes::from(vec![0; 100]), Context::new());
+        c.insert("b", Bytes::from(vec![0; 100]), Context::new());
+        c.insert("c", Bytes::from(vec![0; 100]), Context::new());
         assert_eq!(c.stats().bytes, 300);
         assert!(c.get("a").is_some()); // a becomes most recent
-        c.insert("d", Bytes::from(vec![0; 100])); // evicts b
+        c.insert("d", Bytes::from(vec![0; 100]), Context::new()); // evicts b
         assert!(c.get("b").is_none());
         assert!(c.get("a").is_some());
         assert!(c.get("c").is_some());
@@ -149,10 +168,10 @@ mod tests {
     #[test]
     fn respects_item_limit_and_disable() {
         let c = MemCache::new(1000, 10);
-        c.insert("big", Bytes::from(vec![0; 11]));
+        c.insert("big", Bytes::from(vec![0; 11]), Context::new());
         assert!(c.get("big").is_none());
         let off = MemCache::new(0, 10);
-        off.insert("x", Bytes::from_static(b"1"));
+        off.insert("x", Bytes::from_static(b"1"), Context::new());
         assert!(off.get("x").is_none());
         assert!(!off.enabled());
     }
@@ -160,7 +179,7 @@ mod tests {
     #[test]
     fn remove_frees_bytes() {
         let c = MemCache::new(100, 100);
-        c.insert("a", Bytes::from(vec![0; 50]));
+        c.insert("a", Bytes::from(vec![0; 50]), Context::new());
         c.remove("a");
         assert_eq!(c.stats().bytes, 0);
         assert!(c.get("a").is_none());

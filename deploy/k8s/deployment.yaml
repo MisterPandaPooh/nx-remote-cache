@@ -25,6 +25,7 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
+        fsGroup: 65534          # lets a mounted PVC be written when NX_CACHE_STORE_URL=file:///data
         seccompProfile:
           type: RuntimeDefault
       containers:

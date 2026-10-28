@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="0.55" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111a2e"/>
+      <stop offset="1" stop-color="#0b1120"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)" stroke="rgba(148,163,184,0.28)" stroke-width="4"/>
+  <!-- the N of Nx, drawn as a cache round-trip: down, across, up -->
+  <path d="M76 176V80l104 96V80" fill="none" stroke="url(#g)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- lightning tick: speed -->
+  <path d="M150 150l20-28h-14l6-22-22 30h14z" fill="#e0f2fe" opacity="0.95"/>
+</svg>

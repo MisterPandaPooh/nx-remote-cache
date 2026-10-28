@@ -264,9 +264,8 @@ async fn ops_and_dashboard_endpoints() {
     assert_eq!(events[0]["kind"], "conflict");
     assert_eq!(events[1]["kind"], "miss");
 
-    // The UI fallback answers something for `/` (dashboard needs a token, cache token works).
-    assert_eq!(s.client.get(s.url("/")).send().await.unwrap().status(), 401);
-    let home = s.client.get(s.url("/?token=rw-token")).send().await.unwrap();
+    // The UI shell is public; only its API is guarded.
+    let home = s.client.get(s.url("/")).send().await.unwrap();
     assert_eq!(home.status(), 200);
     assert!(home.headers()["content-type"]
         .to_str()
@@ -330,8 +329,8 @@ async fn ui_token_guards_dashboard_but_not_cache_api() {
             .status(),
         200
     );
-    assert_eq!(s.client.get(s.url("/")).send().await.unwrap().status(), 401);
-    // Cache tokens also open the dashboard; random ones do not.
+    assert_eq!(s.client.get(s.url("/")).send().await.unwrap().status(), 200);
+    // Cache tokens also open the dashboard API; random ones do not.
     assert_eq!(
         s.client
             .get(s.url("/api/v1/stats"))
@@ -471,4 +470,58 @@ async fn memory_tier_serves_small_hot_artifacts() {
         .await
         .unwrap();
     assert!(metrics.contains("nx_cache_memory_tier_hits_total 1"));
+}
+
+#[tokio::test]
+async fn token_context_links_artifacts_to_ci_runs() {
+    let s = start(Config::for_tests("memory:///")).await;
+    // The producer appends its CI run to the token; the secret part still has to match.
+    assert_eq!(
+        s.put("ctx1", "rw-token;run=1001;repo=org/app;actor=alice", payload(500))
+            .await
+            .status(),
+        200
+    );
+    assert_eq!(s.put("ctx2", "nope;run=1001", payload(500)).await.status(), 401);
+    // A different run reads it: the event carries both the reader and the producer.
+    assert_eq!(s.get("ctx1", "ro-token;run=2002;repo=org/app").await.status(), 200);
+    let events: serde_json::Value = serde_json::from_str(
+        &s.client
+            .get(s.url("/api/v1/events?limit=5"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let hit = &events["events"][0];
+    assert_eq!(hit["kind"], "hit");
+    assert_eq!(hit["ctx"]["run"], "2002");
+    assert_eq!(hit["origin"]["run"], "1001");
+    assert_eq!(hit["origin"]["actor"], "alice");
+    let put = events["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["kind"] == "put")
+        .unwrap();
+    assert_eq!(put["ctx"]["run"], "1001");
+    // No context: the fields are simply absent.
+    s.get("none", "rw-token").await;
+    let events: serde_json::Value = serde_json::from_str(
+        &s.client
+            .get(s.url("/api/v1/events?limit=1"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(events["events"][0].get("ctx").is_none());
 }
