@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Condense bench/RESULTS.md into the README's Performance block (between BENCH:START/END)."""
+"""Condense bench/RESULTS.md into docs/performance.md's BENCH block (between BENCH:START/END)."""
 import re
 import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
 results = (root / "bench" / "RESULTS.md").read_text()
-readme_path = root / "README.md"
+readme_path = root / "docs" / "performance.md"
 
 sections = re.split(r"^## Artifact size: (\d+) bytes$", results, flags=re.M)
 rows_by_size = {}
@@ -35,8 +35,8 @@ for size, rows in sorted(rows_by_size.items()):
 block = "\n".join(out).strip() + "\n"
 
 readme = readme_path.read_text()
+if "<!-- BENCH:START -->" not in readme or "<!-- BENCH:END -->" not in readme:
+    sys.exit("docs/performance.md has no BENCH block")
 new = re.sub(r"<!-- BENCH:START -->.*?<!-- BENCH:END -->", "<!-- BENCH:START -->\n" + block + "<!-- BENCH:END -->", readme, flags=re.S)
-if new == readme:
-    sys.exit("README has no BENCH block")
 readme_path.write_text(new)
 print(block)

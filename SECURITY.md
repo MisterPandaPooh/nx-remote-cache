@@ -38,3 +38,21 @@ Only the latest release and `main` receive security fixes.
 The image is `FROM scratch`, runs as uid 65534 with no shell, and the manifests set
 `runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, all capabilities
 dropped and the `RuntimeDefault` seccomp profile.
+
+## Hardening summary
+
+- **Cache API**: bearer tokens, compared in constant time. One read-write token for trusted
+  branches, one read-only token for pull requests, so a fork cannot poison the cache.
+- **Dashboard**: the shell is public, its API needs a token (`NX_CACHE_UI_TOKEN` or a cache token)
+  entered once in the browser, or trusts an SSO proxy header. Keycloak/OIDC, SAML through
+  Keycloak brokering, and Kong Gateway recipes: [`deploy/sso/`](deploy/sso/README.md).
+- **Server**: hashes are validated (`[A-Za-z0-9_-]{1,128}`), uploads are size-capped and
+  concurrency-capped, credentials never appear in logs or in `/api/v1/stats`. Responses carry
+  `nosniff`, the dashboard a strict CSP, `Referrer-Policy: no-referrer` and `X-Frame-Options`.
+- **Trusted header**: with `NX_CACHE_UI_TRUSTED_HEADER` set, any request carrying that header is
+  let into the dashboard API. Expose the server only through the proxy that sets it, and make
+  sure the proxy strips the header from client requests.
+- **Unauthenticated by design**: `/metrics`, `/healthz`, `/readyz` (counters only, no hashes).
+- **Tokens**: generate them with 32 random bytes (`openssl rand -hex 32`); the `?token=` form
+  for the dashboard is read once and removed from the URL.
+- **TLS** is terminated by the ingress; the server speaks plain HTTP (h1, h2c).

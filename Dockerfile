@@ -15,8 +15,11 @@ WORKDIR /src
 COPY Cargo.toml Cargo.lock build.rs rustfmt.toml ./
 COPY src ./src
 COPY --from=ui /ui/dist ./ui/dist
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/src/target \
+# amd64 and arm64 build at the same time: share the registry under a lock, keep one target
+# directory per platform so the two builds never unpack or link over each other.
+ARG TARGETPLATFORM
+RUN --mount=type=cache,id=cargo-registry,sharing=locked,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cargo-target-${TARGETPLATFORM},target=/src/target \
     cargo build --release --locked --bin nx-remote-cache --bin nx-cache-bench \
     && cp target/release/nx-remote-cache /nx-remote-cache \
     && cp target/release/nx-cache-bench /nx-cache-bench
