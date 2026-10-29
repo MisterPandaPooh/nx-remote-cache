@@ -49,7 +49,12 @@ jobs:
         run: |
           set -euo pipefail
           if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
-            echo "tag v$VERSION already exists" >&2; exit 1
+            # Re-publishing an existing version (a failed job after the tag): the files must already
+            # say so and the tag must be on main; nothing is bumped or moved.
+            python3 scripts/release.py check "$VERSION"
+            git merge-base --is-ancestor "v$VERSION" HEAD || { echo "tag v$VERSION is not on main" >&2; exit 1; }
+            echo "tag v$VERSION exists, publishing again from main"
+            exit 0
           fi
           python3 scripts/release.py bump "$VERSION"
           python3 scripts/release.py check "$VERSION"
@@ -283,6 +288,12 @@ jobs:
           digest=$(grep -oE 'sha256:[0-9a-f]{64}' push.log | head -1)
           echo "chart digest $digest"
           echo "$digest" > dist/chart.digest
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        # cosign reads the Docker credential store, not Helm's registry config
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign the chart (keyless, Sigstore)
         run: cosign sign --yes "ghcr.io/misterpandapooh/charts/nx-remote-cache@$(cat dist/chart.digest)"
