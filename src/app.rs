@@ -29,6 +29,8 @@ pub struct Inner {
     pub put_permits: tokio::sync::Semaphore,
     pub memcache: crate::memcache::MemCache,
     pub kv: crate::kv::KvStore,
+    /// `NX_CACHE_STATS_BACKEND=redis`: the dashboard numbers of every replica, summed in Redis.
+    pub shared: Option<crate::shared_stats::SharedStats>,
     /// Set on the shutdown signal: `/readyz` answers 503 so the load balancer stops routing here.
     pub draining: std::sync::atomic::AtomicBool,
 }
@@ -60,6 +62,22 @@ impl AppState {
                 .expect("NX_CACHE_KV_REDIS_URL is not a valid redis:// or rediss:// URL")
             }
         };
+        let shared = match config.stats_backend {
+            crate::config::StatsBackend::Local => None,
+            crate::config::StatsBackend::Redis => Some(
+                crate::shared_stats::SharedStats::new(
+                    config
+                        .kv_redis_url
+                        .as_deref()
+                        .expect("checked when the config was read"),
+                    config.kv_redis_password.as_deref(),
+                    &config.stats_redis_prefix,
+                    &config.pod_name,
+                    config.stats_flush_interval,
+                )
+                .expect("NX_CACHE_KV_REDIS_URL is not a valid redis:// or rediss:// URL"),
+            ),
+        };
         Self(Arc::new(Inner {
             config,
             store,
@@ -68,6 +86,7 @@ impl AppState {
             put_permits,
             memcache,
             kv,
+            shared,
             draining: std::sync::atomic::AtomicBool::new(false),
         }))
     }
@@ -88,10 +107,80 @@ impl AppState {
                     duration_ms = report.duration_ms,
                     "retention sweep done"
                 );
+                if let Some(shared) = &self.shared {
+                    if let Err(e) = shared.record_sweep(&report).await {
+                        tracing::warn!(error = %e, "shared stats: could not record the sweep");
+                    }
+                }
                 self.stats.record_sweep(report);
             }
             Err(e) => tracing::error!(error = %e, "retention sweep failed"),
         }
+    }
+
+    /// With shared stats, one pod per interval sweeps: the others find the lock taken.
+    async fn may_sweep(&self) -> bool {
+        let Some(shared) = &self.shared else { return true };
+        match shared.try_sweep_lock(self.config.sweep_interval).await {
+            Ok(got) => got,
+            Err(e) => {
+                tracing::warn!(error = %e, "shared stats: sweep lock unavailable, sweeping anyway");
+                true
+            }
+        }
+    }
+
+    /// Background tasks of the shared stats: the delta flusher, the event pusher and the relay
+    /// of the cluster's event stream to this pod's SSE clients. No-op with local stats.
+    pub fn spawn_shared_stats(&self) {
+        if self.shared.is_none() {
+            return;
+        }
+        let state = self.clone();
+        tokio::spawn(async move {
+            let shared = state.shared.as_ref().unwrap();
+            let mut last = crate::shared_stats::Flushed::default();
+            let mut failures = 0u32;
+            loop {
+                tokio::time::sleep(shared.flush_interval).await;
+                match shared.flush(&state.stats, &mut last).await {
+                    Ok(()) => failures = 0,
+                    Err(e) => {
+                        // One line when it starts failing, then every minute, not every second.
+                        if failures % 60 == 0 {
+                            tracing::warn!(error = %e, "shared stats: flush to redis failed");
+                        }
+                        failures += 1;
+                    }
+                }
+            }
+        });
+        let state = self.clone();
+        tokio::spawn(async move {
+            let shared = state.shared.as_ref().unwrap();
+            let mut rx = state.stats.subscribe();
+            let mut batch: Vec<std::sync::Arc<crate::stats::Event>> = Vec::new();
+            let mut tick = tokio::time::interval(crate::shared_stats::EVENT_BATCH);
+            loop {
+                tokio::select! {
+                    item = rx.recv() => match item {
+                        Ok(ev) => batch.push(ev),
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            tracing::debug!(skipped = n, "shared stats: event pusher lagged");
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+                    },
+                    _ = tick.tick() => {
+                        if let Err(e) = shared.push_events(&batch).await {
+                            tracing::debug!(error = %e, dropped = batch.len(), "shared stats: events not pushed");
+                        }
+                        batch.clear();
+                    }
+                }
+            }
+        });
+        let state = self.clone();
+        tokio::spawn(async move { state.shared.as_ref().unwrap().relay_events().await });
     }
 
     /// Background loop: a first pass shortly after boot, then every `sweep_interval`.
@@ -105,7 +194,9 @@ impl AppState {
         tokio::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             loop {
-                state.sweep_once().await;
+                if state.may_sweep().await {
+                    state.sweep_once().await;
+                }
                 tokio::time::sleep(interval).await;
             }
         });

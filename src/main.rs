@@ -1,6 +1,7 @@
 use std::future::IntoFuture;
 
 use anyhow::Context;
+use axum::serve::ListenerExt;
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
 
@@ -26,6 +27,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState::new(config.clone(), store);
     let app = router(state.clone());
     state.spawn_sweeper();
+    state.spawn_shared_stats();
 
     let listener = TcpListener::bind(config.bind)
         .await
@@ -47,6 +49,11 @@ async fn main() -> anyhow::Result<()> {
     let grace = config.shutdown_grace;
     let (signalled_tx, signalled_rx) = tokio::sync::oneshot::channel::<()>();
     let draining = state.clone();
+    // Nagle off on accepted sockets: a streamed response writes headers and body separately,
+    // and with Nagle on the body segment waits for the client's delayed ACK (up to 40 ms).
+    let listener = listener.tap_io(|tcp| {
+        let _ = tcp.set_nodelay(true);
+    });
     let server = axum::serve(listener, app)
         .with_graceful_shutdown(async move {
             shutdown_signal().await;

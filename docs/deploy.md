@@ -18,7 +18,8 @@ helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cach
 ```
 
 `redis.enabled=true` bundles a Redis (Bitnami subchart) and switches the key-value store to it, so
-every replica shares the same keys; without it the store is per pod unless you point
+every replica shares the same keys, the dashboard adds up every pod and the retention sweeper runs
+on one pod at a time; without it the store and the dashboard are per pod unless you point
 `server.kv.redis.url` at a Redis of yours. `store.type` picks the backend (`azure`, `s3`, `gcs`, `filesystem`, `memory`) and each one has its
 own `auth` (Workload Identity, managed identity, IRSA, keys, SAS ...); the chart derives the store
 URL, the credentials secret and the ServiceAccount annotations. `server.*` covers uploads, the

@@ -75,9 +75,16 @@ export function TopBar({ stats, mode, streaming, stale, hasToken, onDisconnect }
               <span className="font-medium text-ink">{stats.store.kind}</span>
               <span className="font-mono text-mute">{stats.store.location}</span>
             </Chip>
-            <Chip label="pod" title={stats.pod}>
-              <span className="max-w-[11rem] truncate font-mono text-ink">{stats.pod}</span>
-            </Chip>
+            {stats.stats_backend === 'redis' && stats.pods ? (
+              <Chip label="pods" title={`Shared stats over Redis. Live: ${stats.pods.map((p) => p.name).join(', ')}. Answered by ${stats.pod}.`}>
+                <span className="font-medium text-ink">{stats.pods.length}</span>
+                <span className="text-mute">live</span>
+              </Chip>
+            ) : (
+              <Chip label="pod" title={stats.pod}>
+                <span className="max-w-[11rem] truncate font-mono text-ink">{stats.pod}</span>
+              </Chip>
+            )}
             <Chip label="up">
               <span className="font-medium text-ink">{formatUptime(stats.uptime_seconds)}</span>
             </Chip>

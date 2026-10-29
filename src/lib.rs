@@ -9,6 +9,7 @@ pub mod config;
 pub mod kv;
 pub mod memcache;
 pub mod routes;
+pub mod shared_stats;
 pub mod stats;
 pub mod store;
 pub mod ui;

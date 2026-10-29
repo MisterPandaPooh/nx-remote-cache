@@ -49,6 +49,13 @@ pub struct Config {
     pub kv_redis_prefix: String,
     pub kv_bytes: u64,
     pub kv_max_value: u64,
+    /// `NX_CACHE_STATS_BACKEND`: `local` (this pod only) or `redis` (counters, timeline, events
+    /// and the sweeper shared by every replica). Defaults to `redis` when the KV store is on Redis.
+    pub stats_backend: StatsBackend,
+    /// `NX_CACHE_STATS_REDIS_PREFIX`: first part of every stats key in Redis.
+    pub stats_redis_prefix: String,
+    /// `NX_CACHE_STATS_FLUSH_MS`: how often local deltas are pushed to Redis.
+    pub stats_flush_interval: Duration,
     /// CI integration: links in the dashboard point at `github_url` (GitHub.com or an
     /// Enterprise instance). GitHub is the only provider so far.
     pub github_enabled: bool,
@@ -91,6 +98,15 @@ impl Config {
         {
             bail!("NX_CACHE_KV_BACKEND=redis needs NX_CACHE_KV_REDIS_URL (redis://[:password@]host:6379/0 or rediss://...)");
         }
+        let kv_backend = KvBackend::from_env()?;
+        let stats_backend = StatsBackend::from_env(kv_backend)?;
+        if stats_backend == StatsBackend::Redis
+            && std::env::var("NX_CACHE_KV_REDIS_URL")
+                .map(|s| s.trim().is_empty())
+                .unwrap_or(true)
+        {
+            bail!("NX_CACHE_STATS_BACKEND=redis needs NX_CACHE_KV_REDIS_URL (the stats share the key-value store's Redis)");
+        }
         if rw_tokens.is_empty() && ro_tokens.is_empty() && !allow_anonymous {
             bail!("no token configured: set NX_CACHE_TOKEN (and optionally NX_CACHE_READ_TOKEN), or NX_CACHE_ENABLE_LOGIN=false to run open");
         }
@@ -123,7 +139,7 @@ impl Config {
             memory_cache_max_item: env_size("NX_CACHE_MEMORY_CACHE_MAX_ITEM", 4 << 20)?,
             max_concurrent_puts: env_parse::<usize>("NX_CACHE_MAX_CONCURRENT_PUTS", 64)?.max(1),
             kv_enabled: env_bool("NX_CACHE_KV_ENABLED", true)?,
-            kv_backend: KvBackend::from_env()?,
+            kv_backend,
             kv_redis_url: std::env::var("NX_CACHE_KV_REDIS_URL")
                 .ok()
                 .map(|s| s.trim().to_owned())
@@ -138,6 +154,13 @@ impl Config {
                 .unwrap_or_else(|| "nxrc:kv".to_owned()),
             kv_bytes: env_size("NX_CACHE_KV_BYTES", 64 << 20)?,
             kv_max_value: env_size("NX_CACHE_KV_MAX_VALUE", 1 << 20)?,
+            stats_backend,
+            stats_redis_prefix: std::env::var("NX_CACHE_STATS_REDIS_PREFIX")
+                .ok()
+                .map(|s| s.trim().to_owned())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "nxrc:stats".to_owned()),
+            stats_flush_interval: Duration::from_millis(env_parse("NX_CACHE_STATS_FLUSH_MS", 1000)?),
             github_enabled: env_bool("NX_CACHE_GITHUB_ENABLED", true)?,
             github_url: std::env::var("NX_CACHE_GITHUB_URL")
                 .ok()
@@ -190,6 +213,9 @@ impl Config {
             kv_redis_prefix: "nxrc:kv".to_owned(),
             kv_bytes: 1 << 20,
             kv_max_value: 64 << 10,
+            stats_backend: StatsBackend::Local,
+            stats_redis_prefix: "nxrc:stats".to_owned(),
+            stats_flush_interval: Duration::from_millis(1000),
             github_enabled: true,
             github_url: "https://github.com".to_owned(),
             ttl: None,
@@ -225,6 +251,34 @@ impl KvBackend {
             "" | "memory" => Ok(KvBackend::Memory),
             "redis" => Ok(KvBackend::Redis),
             other => bail!("NX_CACHE_KV_BACKEND must be memory or redis, got `{other}`"),
+        }
+    }
+}
+
+/// Where the dashboard's counters, timeline and event feed live.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StatsBackend {
+    Local,
+    Redis,
+}
+
+impl StatsBackend {
+    /// Empty follows the key-value store: on Redis, the stats are shared too.
+    pub fn from_env(kv: KvBackend) -> Result<Self> {
+        match std::env::var("NX_CACHE_STATS_BACKEND")
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "" => Ok(if kv == KvBackend::Redis {
+                StatsBackend::Redis
+            } else {
+                StatsBackend::Local
+            }),
+            "local" | "memory" => Ok(StatsBackend::Local),
+            "redis" => Ok(StatsBackend::Redis),
+            other => bail!("NX_CACHE_STATS_BACKEND must be local or redis, got `{other}`"),
         }
     }
 }

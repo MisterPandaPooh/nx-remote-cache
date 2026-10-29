@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Shared dashboard across replicas: with the key-value store on Redis, counters, latency, the
+  24 h timeline and the event feed are the sum over every pod, the top bar shows how many pods are
+  alive, and the retention sweeper runs on one pod per interval (`NX_CACHE_STATS_BACKEND`, on by
+  default with Redis; `server.stats.shared` in the chart).
+- `TCP_NODELAY` on accepted connections.
 - Uploads between 1 MB and 64 MB on S3, GCS and Azure are streamed straight to the store as one
   `PUT` through a presigned URL (`NX_CACHE_STREAM_PUT_THRESHOLD`): nothing buffered, the store
   transfer overlaps the client upload. `NX_CACHE_INLINE_PUT_THRESHOLD` defaults to 1 MB.

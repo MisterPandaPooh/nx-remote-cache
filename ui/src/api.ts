@@ -113,12 +113,22 @@ export interface CiInfo {
   url: string
 }
 
+export interface PodInfo {
+  name: string
+  started_at: string
+}
+
 export interface Stats {
   version: string
   uptime_seconds: number
   started_at: string
   store: { kind: string; location: string }
+  /** The pod that answered this request. */
   pod: string
+  /** `redis`: counters, timeline and events are the sum over every replica; `local`: this pod only. */
+  stats_backend?: 'local' | 'redis'
+  /** Pods alive in the last 15 s (just this one with local stats). */
+  pods?: PodInfo[]
   counters: Counters
   latency_ms: LatencyMs
   timeline: TimelineBucket[]

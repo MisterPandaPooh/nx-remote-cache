@@ -739,7 +739,7 @@ fn io_err(e: std::io::Error) -> StoreError {
     }
 }
 
-#[derive(Clone, Debug, Default, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct SweepReport {
     pub at: String,
     pub scanned: u64,

@@ -47,6 +47,7 @@
       "properties": {
         "memoryTier": { "type": "object", "properties": { "enabled": { "type": "boolean" } } },
         "kv": { "type": "object", "properties": { "enabled": { "type": "boolean" }, "backend": { "enum": ["memory", "redis"] } } },
+        "stats": { "type": "object", "properties": { "shared": { "type": "boolean" }, "redisPrefix": { "type": "string" } } },
         "github": { "type": "object", "properties": { "enabled": { "type": "boolean" }, "url": { "type": "string" } } },
         "dashboard": { "type": "object", "properties": { "enabled": { "type": "boolean" } } },
         "logging": {

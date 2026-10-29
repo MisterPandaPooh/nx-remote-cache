@@ -358,6 +358,9 @@ pub struct StatsResponse {
     started_at: String,
     store: StoreInfo,
     pod: String,
+    /// `local`: this pod's numbers. `redis`: the sum over every replica (`pods` lists the live ones).
+    stats_backend: &'static str,
+    pods: Vec<crate::shared_stats::PodInfo>,
     counters: crate::stats::CountersSnapshot,
     latency_ms: Latencies,
     retention: Retention,
@@ -400,6 +403,55 @@ struct Latencies {
 
 pub async fn stats(State(state): State<AppState>) -> Json<StatsResponse> {
     let s = &state.stats;
+    let local_timeline = s.timeline();
+    // Shared stats: the cluster's sums from Redis; this pod's own numbers if Redis is away.
+    let cluster = match &state.shared {
+        Some(shared) => {
+            let ts: Vec<String> = local_timeline.iter().map(|p| p.ts.clone()).collect();
+            match shared.snapshot(&ts).await {
+                Ok(c) => Some(c),
+                Err(e) => {
+                    tracing::warn!(error = %e, "shared stats unavailable, showing this pod only");
+                    None
+                }
+            }
+        }
+        None => None,
+    };
+    let (stats_backend, pods, counters, latency_ms, deleted_total, bytes_freed_total, last_sweep, timeline) =
+        match cluster {
+            Some(c) => (
+                "redis",
+                c.pods,
+                c.counters,
+                Latencies {
+                    get_hit: c.get_hit.summary(),
+                    get_miss: c.get_miss.summary(),
+                    put: c.put.summary(),
+                },
+                c.swept_objects,
+                c.swept_bytes,
+                c.last_sweep,
+                c.timeline,
+            ),
+            None => (
+                "local",
+                vec![crate::shared_stats::PodInfo {
+                    name: state.config.pod_name.clone(),
+                    started_at: s.started_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                }],
+                s.counters(),
+                Latencies {
+                    get_hit: s.get_hit.snapshot().summary(),
+                    get_miss: s.get_miss.snapshot().summary(),
+                    put: s.put.snapshot().summary(),
+                },
+                s.swept_objects.load(std::sync::atomic::Ordering::Relaxed),
+                s.swept_bytes.load(std::sync::atomic::Ordering::Relaxed),
+                s.last_sweep(),
+                local_timeline,
+            ),
+        };
     Json(StatsResponse {
         version: VERSION,
         uptime_seconds: s.uptime().as_secs(),
@@ -409,20 +461,18 @@ pub async fn stats(State(state): State<AppState>) -> Json<StatsResponse> {
             location: state.store.location.clone(),
         },
         pod: state.config.pod_name.clone(),
-        counters: s.counters(),
-        latency_ms: Latencies {
-            get_hit: s.get_hit.snapshot().summary(),
-            get_miss: s.get_miss.snapshot().summary(),
-            put: s.put.snapshot().summary(),
-        },
+        stats_backend,
+        pods,
+        counters,
+        latency_ms,
         retention: Retention {
             ttl_seconds: state.config.ttl.map(|d| d.as_secs()),
             max_total_bytes: state.config.max_total_bytes,
             max_artifact_bytes: state.config.max_artifact_bytes,
             sweep_interval_seconds: state.config.sweep_interval.as_secs(),
-            deleted_total: s.swept_objects.load(std::sync::atomic::Ordering::Relaxed),
-            bytes_freed_total: s.swept_bytes.load(std::sync::atomic::Ordering::Relaxed),
-            last_sweep: s.last_sweep(),
+            deleted_total,
+            bytes_freed_total,
+            last_sweep,
         },
         memory_cache: state.memcache.stats(),
         kv: crate::kv::info(&state.kv),
@@ -430,7 +480,7 @@ pub async fn stats(State(state): State<AppState>) -> Json<StatsResponse> {
             provider: state.config.github_enabled.then_some("github"),
             url: state.config.github_url.clone(),
         },
-        timeline: s.timeline(),
+        timeline,
     })
 }
 
@@ -446,13 +496,23 @@ pub struct EventsResponse {
 
 pub async fn events(State(state): State<AppState>, Query(q): Query<EventsQuery>) -> Json<EventsResponse> {
     let limit = q.limit.unwrap_or(100).min(crate::stats::EVENT_RING);
+    if let Some(shared) = &state.shared {
+        match shared.recent_events(limit).await {
+            Ok(events) => return Json(EventsResponse { events }),
+            Err(e) => tracing::warn!(error = %e, "shared stats unavailable, listing this pod's events"),
+        }
+    }
     Json(EventsResponse {
         events: state.stats.recent_events(limit),
     })
 }
 
 pub async fn events_stream(State(state): State<AppState>) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
-    let rx = state.stats.subscribe();
+    // With shared stats the live feed is the cluster's stream, relayed by this pod.
+    let rx = match &state.shared {
+        Some(shared) => shared.subscribe(),
+        None => state.stats.subscribe(),
+    };
     let stream = BroadcastStream::new(rx).filter_map(|item| async move {
         // A lagging subscriber just skips what it missed; the UI re-syncs from /events.
         let ev = item.ok()?;

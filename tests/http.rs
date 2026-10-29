@@ -17,9 +17,12 @@ async fn start(mut cfg: Config) -> Server {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_test_writer()
         .try_init();
-    cfg.pod_name = "test-pod".into();
+    if cfg.pod_name == "test" {
+        cfg.pod_name = "test-pod".into();
+    }
     let store = CacheStore::open(&cfg).await.unwrap();
     let state = AppState::new(cfg, store);
+    state.spawn_shared_stats();
     let app = router(state);
     let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0))).await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -975,6 +978,89 @@ async fn kv_can_be_switched_off_and_github_links_too() {
     .unwrap();
     assert!(stats["ci"]["provider"].is_null());
     assert_eq!(stats["ci"]["url"], "https://ghe.example.com");
+}
+
+#[tokio::test]
+async fn stats_are_shared_between_two_servers_over_redis() {
+    // Two pods, one Redis: an upload on A and a hit and a miss on B all show in A's dashboard,
+    // B lists A's event, both pods are listed, and only one pod gets the sweep lock. Needs
+    // NX_CACHE_TEST_REDIS_URL (skipped otherwise).
+    let Ok(url) = std::env::var("NX_CACHE_TEST_REDIS_URL") else {
+        eprintln!("NX_CACHE_TEST_REDIS_URL not set, skipping");
+        return;
+    };
+    let mut cfg = Config::for_tests("memory:///");
+    cfg.stats_backend = nx_remote_cache::config::StatsBackend::Redis;
+    cfg.kv_redis_url = Some(url);
+    cfg.stats_redis_prefix = format!("nxrc-http-test-stats:{}", std::process::id());
+    cfg.stats_flush_interval = std::time::Duration::from_millis(50);
+    cfg.pod_name = "pod-a".into();
+    let a = start(cfg.clone()).await;
+    cfg.pod_name = "pod-b".into();
+    let b = start(cfg).await;
+    // Both pods share one memory:/// URL but not one store, so A's artifact is a miss on B.
+    assert_eq!(a.put("c0ffee", "rw-token", payload(100)).await.status(), 200);
+    assert_eq!(a.get("c0ffee", "rw-token").await.status(), 200);
+    assert_eq!(b.get("c0ffee", "rw-token").await.status(), 404);
+    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+
+    let stats: serde_json::Value = serde_json::from_slice(
+        &b.client
+            .get(b.url("/api/v1/stats"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(stats["stats_backend"], "redis");
+    assert_eq!(stats["pod"], "pod-b");
+    assert_eq!(
+        (
+            stats["counters"]["puts"].as_u64(),
+            stats["counters"]["hits"].as_u64(),
+            stats["counters"]["misses"].as_u64()
+        ),
+        (Some(1), Some(1), Some(1))
+    );
+    assert_eq!(stats["counters"]["bytes_stored"], 100);
+    assert_eq!(stats["latency_ms"]["put"]["count"], 1);
+    let pods: Vec<&str> = stats["pods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(pods, ["pod-a", "pod-b"]);
+    let last = stats["timeline"].as_array().unwrap().last().unwrap();
+    assert_eq!(
+        (last["puts"].as_u64(), last["hits"].as_u64(), last["misses"].as_u64()),
+        (Some(1), Some(1), Some(1))
+    );
+
+    let events: serde_json::Value = serde_json::from_slice(
+        &b.client
+            .get(b.url("/api/v1/events?limit=10"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let kinds: Vec<&str> = events["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["kind"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, ["miss", "hit", "put"]);
+    assert_eq!(events["events"][2]["hash"], "c0ffee");
 }
 
 #[tokio::test]

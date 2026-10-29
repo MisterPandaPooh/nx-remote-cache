@@ -253,6 +253,10 @@ memory:///
       key: {{ ternary $v.kv.redis.existingSecretKey "NX_CACHE_KV_REDIS_URL" (not (empty $v.kv.redis.existingSecret)) }}
 {{- end }}
 {{- end }}
+- name: NX_CACHE_STATS_BACKEND
+  value: {{ ternary "redis" "local" (and $v.stats.shared (eq (include "nx-remote-cache.kvBackend" .) "redis")) | quote }}
+- name: NX_CACHE_STATS_REDIS_PREFIX
+  value: {{ $v.stats.redisPrefix | quote }}
 - name: NX_CACHE_KV_BYTES
   value: {{ $v.kv.size | quote }}
 - name: NX_CACHE_KV_MAX_VALUE

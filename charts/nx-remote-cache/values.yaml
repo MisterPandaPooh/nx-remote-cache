@@ -125,6 +125,13 @@ server:
       prefix: nxrc:kv
     size: 64MB
     maxValueSize: 1MB
+  ## Dashboard numbers across replicas. With the key-value store on Redis (redis.enabled or
+  ## kv.backend: redis) and shared: true, counters, latency, the 24 h timeline and the event feed
+  ## are the sum over every pod, and the retention sweeper runs on one pod per interval. Without
+  ## Redis every pod shows its own numbers (Prometheus still aggregates /metrics either way).
+  stats:
+    shared: true
+    redisPrefix: nxrc:stats
   ## Built-in sweeper. Prefer a lifecycle policy on the bucket for TTLs of a day or more.
   retention:
     ## e.g. 30d; empty keeps artifacts forever

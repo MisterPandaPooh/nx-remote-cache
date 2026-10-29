@@ -99,6 +99,18 @@ Values keep the `Content-Type` they were stored with; JSON is validated. Per-key
 `?secret=true` to mask a value in the dashboard. With `NX_CACHE_KV_BACKEND=redis` the keys are
 shared by every replica; see [`api.md`](api.md#key-value-store).
 
+## Shared dashboard (several replicas)
+
+| Variable | Default | Description |
+|---|---|---|
+| `NX_CACHE_STATS_BACKEND` | `redis` when the key-value store is on Redis, else `local` | `local`: the dashboard shows the pod that answered. `redis`: counters, latency, the 24 h timeline and the event feed are the sum over every replica, kept in the key-value store's Redis (`NX_CACHE_KV_REDIS_URL`), and the retention sweeper runs on one pod per interval. If Redis is away the dashboard falls back to the pod's own numbers; the cache API is never affected. |
+| `NX_CACHE_STATS_REDIS_PREFIX` | `nxrc:stats` | First part of every stats key. |
+| `NX_CACHE_STATS_FLUSH_MS` | `1000` | How often a pod pushes its deltas (one pipeline per flush, whatever the traffic). |
+
+The request path never waits for Redis: each pod counts in memory and a background task pushes
+the differences. Events reach the shared stream in 100 ms batches and every pod relays that
+stream to its own live-feed clients. `/metrics` stays per pod, as Prometheus expects.
+
 ## CI integration
 
 | Variable | Default | Description |

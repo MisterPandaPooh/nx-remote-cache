@@ -56,6 +56,12 @@ export function createMockState(): Stats {
     started_at: new Date(started).toISOString(),
     store: { kind: 'azure', location: 'az://nx-cache/' },
     pod: 'nx-remote-cache-7d9f-abcde',
+    stats_backend: 'redis',
+    pods: [
+      { name: 'nx-remote-cache-7d9f-abcde', started_at: new Date(Date.now() - 86_400_000 * 3).toISOString() },
+      { name: 'nx-remote-cache-7d9f-fghij', started_at: new Date(Date.now() - 86_400_000 * 3).toISOString() },
+      { name: 'nx-remote-cache-7d9f-klmno', started_at: new Date(Date.now() - 3_600_000).toISOString() },
+    ],
     counters: {
       hits: c.hits,
       misses: c.misses,
