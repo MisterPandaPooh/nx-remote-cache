@@ -95,8 +95,8 @@ export interface KvKey {
 
 export interface KvInfo {
   enabled: boolean
-  /** `memory` (one view per pod) or `store` (shared through the artifact store). */
-  backend?: 'memory' | 'store'
+  /** `memory` (one view per pod) or `redis` (shared by every replica). */
+  backend?: 'memory' | 'redis'
   items: number
   bytes: number
   budget_bytes: number

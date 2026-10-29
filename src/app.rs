@@ -43,9 +43,13 @@ impl AppState {
         let kv_budget = if config.kv_enabled { config.kv_bytes } else { 0 };
         let kv = match config.kv_backend {
             crate::config::KvBackend::Memory => crate::kv::KvStore::new(kv_budget, config.kv_max_value),
-            crate::config::KvBackend::Store => {
-                let (raw, prefix) = store.raw();
-                crate::kv::KvStore::with_store(kv_budget, config.kv_max_value, raw, prefix)
+            crate::config::KvBackend::Redis => {
+                let url = config
+                    .kv_redis_url
+                    .as_deref()
+                    .expect("checked when the config was read");
+                crate::kv::KvStore::with_redis(kv_budget, config.kv_max_value, url, &config.kv_redis_prefix)
+                    .expect("NX_CACHE_KV_REDIS_URL is not a valid redis:// or rediss:// URL")
             }
         };
         Self(Arc::new(Inner {

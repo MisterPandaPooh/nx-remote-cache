@@ -92,12 +92,11 @@ the token context (`repo=` and `run=` after the token, the same context the dash
 from `?pipeline=` / `?run=`. A key never leaks across scopes: the same name in two runs is two
 keys. Pipeline and run identifiers match `[A-Za-z0-9_./:@-]{1,200}`.
 
-**Several pods.** With `NX_CACHE_KV_BACKEND=store` every key is an object under `<prefix>/kv/`
-in the artifact store (`kv/<level>/<scope>/<key>`, a one-line JSON header with content type,
-secret flag and expiry, then the raw bytes), so all replicas read and write the same keys and
-they survive restarts; the retention sweeper leaves `kv/` alone and expired keys are deleted
-when read or listed. The default `memory` backend is an LRU in each process: fast, but with
-several replicas each pod has its own keys.
+**Several pods.** With `NX_CACHE_KV_BACKEND=redis` every key is a Redis string named
+`<prefix>|<level>|<scope>|<key>` (a one-line JSON header with content type and secret flag, then
+the raw bytes) with Redis' own expiry, so all replicas read and write the same keys; `/readyz`
+pings Redis. The default `memory` backend is an LRU in each process: fast, but with several
+replicas each pod has its own keys.
 
 **Secrets.** `?secret=true` on the PUT marks the value: the dashboard shows it masked with a
 reveal button, `GET` adds `x-kv-secret: true`. The API itself returns the value to any valid

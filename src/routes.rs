@@ -324,13 +324,15 @@ pub async fn healthz() -> &'static str {
 }
 
 pub async fn readyz(State(state): State<AppState>) -> Response {
-    match state.store.probe().await {
-        Ok(()) => "ok".into_response(),
-        Err(e) => {
-            tracing::warn!(error = %e, "readiness probe failed");
-            text(StatusCode::SERVICE_UNAVAILABLE, format!("store unavailable: {e}"))
-        }
+    if let Err(e) = state.store.probe().await {
+        tracing::warn!(error = %e, "readiness probe failed");
+        return text(StatusCode::SERVICE_UNAVAILABLE, format!("store unavailable: {e}"));
     }
+    if let Err(e) = state.kv.probe().await {
+        tracing::warn!(error = ?e, "readiness probe failed: key-value store");
+        return text(StatusCode::SERVICE_UNAVAILABLE, "key-value store (redis) unavailable");
+    }
+    "ok".into_response()
 }
 
 pub async fn metrics(State(state): State<AppState>) -> Response {

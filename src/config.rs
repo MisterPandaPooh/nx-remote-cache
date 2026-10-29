@@ -35,8 +35,12 @@ pub struct Config {
     /// Budget of the side key-value store (`/v1/kv`); 0 disables it.
     /// `NX_CACHE_KV_ENABLED`; with `false` the store is off whatever the budget says.
     pub kv_enabled: bool,
-    /// `NX_CACHE_KV_BACKEND`: `memory` (per pod) or `store` (objects under `<prefix>/kv/`, shared).
+    /// `NX_CACHE_KV_BACKEND`: `memory` (one view per pod) or `redis` (shared by every replica).
     pub kv_backend: KvBackend,
+    /// `NX_CACHE_KV_REDIS_URL`, required with the redis backend; never logged (it may hold a password).
+    pub kv_redis_url: Option<String>,
+    /// `NX_CACHE_KV_REDIS_PREFIX`: first part of every Redis key.
+    pub kv_redis_prefix: String,
     pub kv_bytes: u64,
     pub kv_max_value: u64,
     /// CI integration: links in the dashboard point at `github_url` (GitHub.com or an
@@ -74,6 +78,13 @@ impl Config {
         let ro_tokens = env_list("NX_CACHE_READ_TOKEN");
         let login_enabled = env_bool("NX_CACHE_ENABLE_LOGIN", true)?;
         let allow_anonymous = env_bool("NX_CACHE_ALLOW_ANONYMOUS", false)? || !login_enabled;
+        if KvBackend::from_env()? == KvBackend::Redis
+            && std::env::var("NX_CACHE_KV_REDIS_URL")
+                .map(|s| s.trim().is_empty())
+                .unwrap_or(true)
+        {
+            bail!("NX_CACHE_KV_BACKEND=redis needs NX_CACHE_KV_REDIS_URL (redis://[:password@]host:6379/0 or rediss://...)");
+        }
         if rw_tokens.is_empty() && ro_tokens.is_empty() && !allow_anonymous {
             bail!("no token configured: set NX_CACHE_TOKEN (and optionally NX_CACHE_READ_TOKEN), or NX_CACHE_ENABLE_LOGIN=false to run open");
         }
@@ -105,6 +116,15 @@ impl Config {
             max_concurrent_puts: env_parse::<usize>("NX_CACHE_MAX_CONCURRENT_PUTS", 64)?.max(1),
             kv_enabled: env_bool("NX_CACHE_KV_ENABLED", true)?,
             kv_backend: KvBackend::from_env()?,
+            kv_redis_url: std::env::var("NX_CACHE_KV_REDIS_URL")
+                .ok()
+                .map(|s| s.trim().to_owned())
+                .filter(|s| !s.is_empty()),
+            kv_redis_prefix: std::env::var("NX_CACHE_KV_REDIS_PREFIX")
+                .ok()
+                .map(|s| s.trim().to_owned())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "nxrc:kv".to_owned()),
             kv_bytes: env_size("NX_CACHE_KV_BYTES", 64 << 20)?,
             kv_max_value: env_size("NX_CACHE_KV_MAX_VALUE", 1 << 20)?,
             github_enabled: env_bool("NX_CACHE_GITHUB_ENABLED", true)?,
@@ -153,6 +173,8 @@ impl Config {
             max_concurrent_puts: 8,
             kv_enabled: true,
             kv_backend: KvBackend::Memory,
+            kv_redis_url: None,
+            kv_redis_prefix: "nxrc:kv".to_owned(),
             kv_bytes: 1 << 20,
             kv_max_value: 64 << 10,
             github_enabled: true,
@@ -176,7 +198,7 @@ impl Config {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KvBackend {
     Memory,
-    Store,
+    Redis,
 }
 
 impl KvBackend {
@@ -188,8 +210,8 @@ impl KvBackend {
             .as_str()
         {
             "" | "memory" => Ok(KvBackend::Memory),
-            "store" => Ok(KvBackend::Store),
-            other => bail!("NX_CACHE_KV_BACKEND must be memory or store, got `{other}`"),
+            "redis" => Ok(KvBackend::Redis),
+            other => bail!("NX_CACHE_KV_BACKEND must be memory or redis, got `{other}`"),
         }
     }
 }

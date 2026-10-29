@@ -108,9 +108,17 @@ server:
   ## /v1/kv, the key-value store for CI glue (NX_CACHE_KV_ENABLED)
   kv:
     enabled: true
-    ## store: keys are objects under kv/ in the artifact store, shared by every replica (default here,
-    ## the chart runs several pods). memory: an LRU in each pod, fast, gone on restart.
-    backend: store
+    ## memory: an LRU in each pod (fast, gone on restart, one view per pod). redis: shared by every
+    ## replica; set redis.url or redis.existingSecret.
+    backend: memory
+    redis:
+      ## redis://[:password@]host:6379/0 or rediss://...; ends up in a chart-managed secret
+      url: ""
+      ## or a secret of yours holding the URL
+      existingSecret: ""
+      existingSecretKey: NX_CACHE_KV_REDIS_URL
+      ## first part of every key, so one Redis can serve several caches
+      prefix: nxrc:kv
     size: 64MB
     maxValueSize: 1MB
   ## Built-in sweeper. Prefer a lifecycle policy on the bucket for TTLs of a day or more.

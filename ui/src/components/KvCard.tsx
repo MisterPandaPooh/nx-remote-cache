@@ -114,8 +114,8 @@ export function KvCard({ kv, mode }: { kv: KvInfo | undefined; mode: Mode }) {
         title="Key-value store"
         hint={
           enabled
-            ? kv?.backend === 'store'
-              ? `${formatInt(kv?.items ?? keys.length)} keys · ${formatBytes(kv?.bytes ?? 0)} · shared through the store · /v1/kv`
+            ? kv?.backend === 'redis'
+              ? `${formatInt(kv?.items ?? keys.length)} keys · ${formatBytes(kv?.bytes ?? 0)} · redis, shared by every replica · /v1/kv`
               : `${formatInt(kv?.items ?? keys.length)} keys · ${formatBytes(kv?.bytes ?? 0)} of ${formatBytes(kv?.budget_bytes ?? 0)} · in memory, this pod · /v1/kv`
             : 'Disabled with NX_CACHE_KV_ENABLED=false'
         }

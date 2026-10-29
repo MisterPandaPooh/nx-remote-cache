@@ -206,6 +206,15 @@ memory:///
   value: {{ $v.kv.enabled | quote }}
 - name: NX_CACHE_KV_BACKEND
   value: {{ $v.kv.backend | quote }}
+{{- if eq $v.kv.backend "redis" }}
+- name: NX_CACHE_KV_REDIS_PREFIX
+  value: {{ $v.kv.redis.prefix | quote }}
+- name: NX_CACHE_KV_REDIS_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ $v.kv.redis.existingSecret | default (printf "%s-kv" (include "common.names.fullname" .)) }}
+      key: {{ ternary $v.kv.redis.existingSecretKey "NX_CACHE_KV_REDIS_URL" (not (empty $v.kv.redis.existingSecret)) }}
+{{- end }}
 - name: NX_CACHE_KV_BYTES
   value: {{ $v.kv.size | quote }}
 - name: NX_CACHE_KV_MAX_VALUE
@@ -285,6 +294,7 @@ memory:///
 {{- if not .Values.persistence.enabled }}{{ $m = append $m "store.type=filesystem needs persistence.enabled: true (artifacts would vanish with the pod)" }}{{ end -}}
 {{- end -}}
 {{- if and (eq $s.type "memory") (gt (int .Values.replicaCount) 1) (not .Values.autoscaling.enabled) }}{{ $m = append $m "store.type=memory with several replicas gives each pod its own cache; set replicaCount: 1" }}{{ end -}}
+{{- if and (eq .Values.server.kv.backend "redis") (not .Values.server.kv.redis.url) (not .Values.server.kv.redis.existingSecret) }}{{ $m = append $m "server.kv.backend=redis needs server.kv.redis.url or server.kv.redis.existingSecret" }}{{ end -}}
 {{- if $m -}}
 {{- printf "\nVALUES VALIDATION:\n- %s\n" (join "\n- " $m) | fail -}}
 {{- end -}}

@@ -10,13 +10,13 @@
 //!
 //! Two backends:
 //! - `memory`: a byte-bounded LRU in this process. Fast, gone on restart, and with several
-//!   replicas each pod has its own view (route `/v1/kv` to one pod, or use `store`).
-//! - `store`: every key is a small object under `<prefix>/kv/` in the artifact store, so every
-//!   replica sees the same keys and they survive restarts. One store round trip per operation.
+//!   replicas each pod has its own view.
+//! - `redis`: every key is a Redis string `<prefix>|<level>|<scope>|<key>` with Redis' own
+//!   expiry, so every replica shares the same keys. One round trip per operation.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
@@ -24,9 +24,6 @@ use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use bytes::Bytes;
-use futures_util::{StreamExt, TryStreamExt};
-use object_store::path::Path as StorePath;
-use object_store::{Error as StoreError, ObjectStore, ObjectStoreExt, PutPayload};
 use serde::{Deserialize, Serialize};
 
 use crate::app::AppState;
@@ -41,8 +38,9 @@ const MAX_LIST_LIMIT: usize = 1000;
 /// Separator inside the in-memory map key; never valid in a key or scope, so composed keys
 /// cannot collide.
 const SEP: char = '\u{1f}';
-/// Parallel store reads when listing with metadata.
-const LIST_FANOUT: usize = 16;
+/// Separator inside Redis keys: readable in `redis-cli`, and `|` is not allowed in keys or scopes.
+const REDIS_SEP: char = '|';
+const SCAN_PAGE: usize = 500;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -74,14 +72,14 @@ impl Level {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Backend {
     Memory,
-    Store,
+    Redis,
 }
 
 impl Backend {
     pub fn as_str(self) -> &'static str {
         match self {
             Backend::Memory => "memory",
-            Backend::Store => "store",
+            Backend::Redis => "redis",
         }
     }
 }
@@ -104,7 +102,7 @@ pub struct KvStats {
 pub enum KvError {
     Disabled,
     TooLarge,
-    Store(StoreError),
+    Redis(redis::RedisError),
 }
 
 impl PartialEq for KvError {
@@ -116,9 +114,9 @@ impl PartialEq for KvError {
     }
 }
 
-impl From<StoreError> for KvError {
-    fn from(e: StoreError) -> Self {
-        KvError::Store(e)
+impl From<redis::RedisError> for KvError {
+    fn from(e: redis::RedisError) -> Self {
+        KvError::Redis(e)
     }
 }
 
@@ -126,15 +124,16 @@ pub struct KvStore {
     budget: u64,
     max_value: u64,
     inner: Mutex<Inner>,
-    shared: Option<Shared>,
-    /// `store` backend: counts from the last listing (the store is not asked on every scrape).
+    redis: Option<RedisBackend>,
+    /// `redis` backend: counts from the last listing (Redis is not asked on every scrape).
     last_seen: Mutex<KvStats>,
 }
 
-struct Shared {
-    store: Arc<dyn ObjectStore>,
-    /// `<prefix>/kv`, without leading or trailing slash; empty prefix gives `kv`.
-    root: String,
+struct RedisBackend {
+    client: redis::Client,
+    /// Built on first use; reconnects by itself afterwards.
+    conn: tokio::sync::OnceCell<redis::aio::ConnectionManager>,
+    prefix: String,
 }
 
 struct Stored {
@@ -166,28 +165,11 @@ fn compose(level: Level, scope: &str, key: &str) -> String {
     format!("{}{SEP}{scope}{SEP}{key}", level.as_str())
 }
 
-/// What a `store`-backed value looks like on disk: one JSON header line, then the raw bytes.
+/// What a Redis value looks like: one JSON header line, then the raw bytes. Expiry is Redis' own.
 #[derive(Serialize, Deserialize)]
 struct Envelope {
     ct: String,
     secret: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    expires_at: Option<u64>,
-}
-
-fn now_unix() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
-/// Parsed path of a store object under the kv root: `level/<scope segments>/key`.
-#[derive(Clone)]
-pub struct KeyRef {
-    pub level: Level,
-    pub scope: String,
-    pub key: String,
 }
 
 impl KvStore {
@@ -197,32 +179,31 @@ impl KvStore {
             budget,
             max_value,
             inner: Mutex::new(Inner::default()),
-            shared: None,
+            redis: None,
             last_seen: Mutex::new(KvStats::default()),
         }
     }
 
-    /// Keys kept as objects under `<prefix>/kv/` in the artifact store, shared by every replica.
-    /// `budget` only keeps the enabled/disabled semantics (`0` disables).
-    pub fn with_store(budget: u64, max_value: u64, store: Arc<dyn ObjectStore>, prefix: &StorePath) -> Self {
-        let p = prefix.as_ref().trim_matches('/');
-        let root = if p.is_empty() {
-            "kv".to_owned()
-        } else {
-            format!("{p}/kv")
-        };
-        Self {
+    /// Keys in Redis, shared by every replica. `budget` only keeps the enabled/disabled
+    /// semantics (`0` disables); Redis' own `maxmemory` bounds the data.
+    pub fn with_redis(budget: u64, max_value: u64, url: &str, prefix: &str) -> Result<Self, redis::RedisError> {
+        let client = redis::Client::open(url)?;
+        Ok(Self {
             budget,
             max_value,
             inner: Mutex::new(Inner::default()),
-            shared: Some(Shared { store, root }),
+            redis: Some(RedisBackend {
+                client,
+                conn: tokio::sync::OnceCell::new(),
+                prefix: prefix.trim_matches(REDIS_SEP).to_owned(),
+            }),
             last_seen: Mutex::new(KvStats::default()),
-        }
+        })
     }
 
     pub fn backend(&self) -> Backend {
-        if self.shared.is_some() {
-            Backend::Store
+        if self.redis.is_some() {
+            Backend::Redis
         } else {
             Backend::Memory
         }
@@ -240,6 +221,15 @@ impl KvStore {
         self.max_value
     }
 
+    /// Readiness: `PING` on the redis backend, nothing to check in memory.
+    pub async fn probe(&self) -> Result<(), KvError> {
+        if let Some(r) = &self.redis {
+            let mut con = r.conn().await?;
+            redis::cmd("PING").query_async::<String>(&mut con).await?;
+        }
+        Ok(())
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub async fn set(
         &self,
@@ -255,22 +245,24 @@ impl KvStore {
             return Err(KvError::Disabled);
         }
         let len = value.len() as u64;
-        if len > self.max_value || (self.shared.is_none() && len > self.budget) {
+        if len > self.max_value || (self.redis.is_none() && len > self.budget) {
             return Err(KvError::TooLarge);
         }
-        if let Some(shared) = &self.shared {
-            let header = Envelope {
+        if let Some(r) = &self.redis {
+            let mut body = serde_json::to_vec(&Envelope {
                 ct: content_type,
                 secret,
-                expires_at: ttl.map(|t| now_unix() + t.as_secs().max(1)),
-            };
-            let mut body = serde_json::to_vec(&header).expect("envelope serialises");
+            })
+            .expect("envelope serialises");
             body.push(b'\n');
             body.extend_from_slice(&value);
-            shared
-                .store
-                .put(&shared.path(level, scope, key), PutPayload::from(body))
-                .await?;
+            let mut con = r.conn().await?;
+            let mut cmd = redis::cmd("SET");
+            cmd.arg(r.key(level, scope, key)).arg(body);
+            if let Some(t) = ttl {
+                cmd.arg("EX").arg(t.as_secs().max(1));
+            }
+            cmd.query_async::<()>(&mut con).await?;
             return Ok(());
         }
         let now = Instant::now();
@@ -302,23 +294,17 @@ impl KvStore {
     }
 
     pub async fn get(&self, level: Level, scope: &str, key: &str) -> Result<Option<Entry>, KvError> {
-        if let Some(shared) = &self.shared {
-            let path = shared.path(level, scope, key);
-            return match shared.store.get(&path).await {
-                Ok(result) => {
-                    let bytes = result.bytes().await?;
-                    match decode(&bytes) {
-                        Some(entry) => Ok(Some(entry)),
-                        None => {
-                            // Expired (or unreadable): drop it so the next reader does not pay again.
-                            let _ = shared.store.delete(&path).await;
-                            Ok(None)
-                        }
-                    }
-                }
-                Err(StoreError::NotFound { .. }) => Ok(None),
-                Err(e) => Err(e.into()),
-            };
+        if let Some(r) = &self.redis {
+            let mut con = r.conn().await?;
+            let k = r.key(level, scope, key);
+            let (raw, ttl): (Option<Vec<u8>>, i64) = redis::pipe()
+                .cmd("GET")
+                .arg(&k)
+                .cmd("TTL")
+                .arg(&k)
+                .query_async(&mut con)
+                .await?;
+            return Ok(raw.and_then(|bytes| decode(Bytes::from(bytes), ttl)));
         }
         let now = Instant::now();
         let full = compose(level, scope, key);
@@ -341,17 +327,13 @@ impl KvStore {
     }
 
     pub async fn delete(&self, level: Level, scope: &str, key: &str) -> Result<bool, KvError> {
-        if let Some(shared) = &self.shared {
-            let path = shared.path(level, scope, key);
-            // Object stores answer 204 for a missing key, so look first to report 404 honestly.
-            return match shared.store.head(&path).await {
-                Ok(_) => {
-                    shared.store.delete(&path).await?;
-                    Ok(true)
-                }
-                Err(StoreError::NotFound { .. }) => Ok(false),
-                Err(e) => Err(e.into()),
-            };
+        if let Some(r) = &self.redis {
+            let mut con = r.conn().await?;
+            let n: i64 = redis::cmd("DEL")
+                .arg(r.key(level, scope, key))
+                .query_async(&mut con)
+                .await?;
+            return Ok(n > 0);
         }
         let mut inner = self.inner.lock().unwrap_or_else(|p| p.into_inner());
         Ok(remove(&mut inner, &compose(level, scope, key)))
@@ -359,15 +341,9 @@ impl KvStore {
 
     /// Live keys of one scope starting with `prefix`, sorted, at most `limit` of them.
     pub async fn list(&self, level: Level, scope: &str, prefix: &str, limit: usize) -> Result<Vec<KeyInfo>, KvError> {
-        if let Some(shared) = &self.shared {
-            let base = shared.scope_path(level, scope);
-            let mut keys = self
-                .list_store(shared, Some(&base), limit, |r| {
-                    r.level == level && r.scope == scope && r.key.starts_with(prefix)
-                })
-                .await?;
-            keys.truncate(limit);
-            return Ok(keys);
+        if let Some(r) = &self.redis {
+            let pattern = format!("{}{prefix}*", r.scope_prefix(level, scope));
+            return self.list_redis(r, &pattern, limit).await;
         }
         Ok(self.collect(limit, |s| {
             s.level == level && s.scope == scope && s.key.starts_with(prefix)
@@ -376,9 +352,9 @@ impl KvStore {
 
     /// Every live key of every scope, for the dashboard.
     pub async fn list_all(&self, limit: usize) -> Result<Vec<KeyInfo>, KvError> {
-        if let Some(shared) = &self.shared {
-            let base = StorePath::from(shared.root.as_str());
-            let keys = self.list_store(shared, Some(&base), limit, |_| true).await?;
+        if let Some(r) = &self.redis {
+            let pattern = format!("{}{REDIS_SEP}*", r.prefix);
+            let keys = self.list_redis(r, &pattern, limit).await?;
             let stats = KvStats {
                 items: keys.len() as u64,
                 bytes: keys.iter().map(|k| k.size).sum(),
@@ -389,53 +365,61 @@ impl KvStore {
         Ok(self.collect(limit, |_| true))
     }
 
-    async fn list_store(
-        &self,
-        shared: &Shared,
-        base: Option<&StorePath>,
-        limit: usize,
-        keep: impl Fn(&KeyRef) -> bool,
-    ) -> Result<Vec<KeyInfo>, KvError> {
-        let mut refs: Vec<(KeyRef, StorePath)> = Vec::new();
-        let mut stream = shared.store.list(base);
-        while let Some(meta) = stream.try_next().await? {
-            if let Some(r) = shared.parse(&meta.location) {
-                if keep(&r) {
-                    refs.push((r, meta.location));
-                }
+    /// `SCAN` the matching keys (sorted, at most `limit`), then one pipeline of `GET` + `TTL`.
+    async fn list_redis(&self, r: &RedisBackend, pattern: &str, limit: usize) -> Result<Vec<KeyInfo>, KvError> {
+        let mut con = r.conn().await?;
+        let mut names: Vec<String> = Vec::new();
+        let mut cursor: u64 = 0;
+        loop {
+            let (next, page): (u64, Vec<String>) = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(pattern)
+                .arg("COUNT")
+                .arg(SCAN_PAGE)
+                .query_async(&mut con)
+                .await?;
+            names.extend(page);
+            cursor = next;
+            if cursor == 0 || names.len() >= limit * 4 {
+                break;
             }
         }
+        let mut refs: Vec<(KeyRef, String)> = names.into_iter().filter_map(|n| r.parse(&n).map(|k| (k, n))).collect();
         refs.sort_by(|a, b| {
             (a.0.level.as_str(), &a.0.scope, &a.0.key).cmp(&(b.0.level.as_str(), &b.0.scope, &b.0.key))
         });
         refs.truncate(limit);
-        let now = now_unix();
-        let infos: Vec<Option<KeyInfo>> = futures_util::stream::iter(refs)
-            .map(|(r, path)| {
-                let store = shared.store.clone();
-                async move {
-                    let bytes = store.get(&path).await.ok()?.bytes().await.ok()?;
-                    let (header, value_len) = split(&bytes)?;
-                    if header.expires_at.is_some_and(|x| x <= now) {
-                        let _ = store.delete(&path).await;
-                        return None;
-                    }
-                    Some(KeyInfo {
-                        level: r.level,
-                        scope: r.scope,
-                        key: r.key,
-                        size: value_len as u64,
-                        content_type: header.ct,
-                        secret: header.secret,
-                        expires_in_secs: header.expires_at.map(|x| x.saturating_sub(now)),
-                    })
-                }
-            })
-            .buffer_unordered(LIST_FANOUT)
-            .collect()
-            .await;
-        let mut keys: Vec<KeyInfo> = infos.into_iter().flatten().collect();
-        keys.sort_by(|a, b| (a.level.as_str(), &a.scope, &a.key).cmp(&(b.level.as_str(), &b.scope, &b.key)));
+        if refs.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut pipe = redis::pipe();
+        for (_, name) in &refs {
+            pipe.cmd("GET").arg(name).cmd("TTL").arg(name);
+        }
+        let replies: Vec<redis::Value> = pipe.query_async(&mut con).await?;
+        let mut keys = Vec::with_capacity(refs.len());
+        for (i, (kref, _)) in refs.into_iter().enumerate() {
+            let raw: Option<Vec<u8>> = replies
+                .get(2 * i)
+                .and_then(|v| redis::from_redis_value(v.clone()).ok())
+                .flatten();
+            let ttl: i64 = replies
+                .get(2 * i + 1)
+                .and_then(|v| redis::from_redis_value(v.clone()).ok())
+                .unwrap_or(-1);
+            let Some(raw) = raw else { continue }; // expired between SCAN and GET
+            let Some((header, len)) = split(&raw) else { continue };
+            keys.push(KeyInfo {
+                level: kref.level,
+                scope: kref.scope,
+                key: kref.key,
+                size: len as u64,
+                content_type: header.ct,
+                secret: header.secret,
+                expires_in_secs: (ttl >= 0).then_some(ttl as u64),
+            });
+        }
         Ok(keys)
     }
 
@@ -462,7 +446,7 @@ impl KvStore {
     }
 
     pub fn stats(&self) -> KvStats {
-        if self.shared.is_some() {
+        if self.redis.is_some() {
             return *self.last_seen.lock().unwrap_or_else(|p| p.into_inner());
         }
         let inner = self.inner.lock().unwrap_or_else(|p| p.into_inner());
@@ -473,65 +457,63 @@ impl KvStore {
     }
 }
 
-impl Shared {
-    /// `<root>/<level>/<scope segments>/<key>`, empty segments skipped (global has no scope).
-    fn path(&self, level: Level, scope: &str, key: &str) -> StorePath {
-        let mut s = format!("{}/{}", self.root, level.as_str());
-        for seg in scope.split('/').filter(|x| !x.is_empty()) {
-            s.push('/');
-            s.push_str(seg);
-        }
-        s.push('/');
-        s.push_str(key);
-        StorePath::from(s)
+/// Parsed Redis key: `level|scope|key`.
+#[derive(Clone)]
+struct KeyRef {
+    level: Level,
+    scope: String,
+    key: String,
+}
+
+impl RedisBackend {
+    async fn conn(&self) -> Result<redis::aio::ConnectionManager, redis::RedisError> {
+        let c = self
+            .conn
+            .get_or_try_init(|| redis::aio::ConnectionManager::new(self.client.clone()))
+            .await?;
+        Ok(c.clone())
     }
 
-    fn scope_path(&self, level: Level, scope: &str) -> StorePath {
-        let mut s = format!("{}/{}", self.root, level.as_str());
-        for seg in scope.split('/').filter(|x| !x.is_empty()) {
-            s.push('/');
-            s.push_str(seg);
-        }
-        StorePath::from(s)
+    fn key(&self, level: Level, scope: &str, key: &str) -> String {
+        format!("{}{key}", self.scope_prefix(level, scope))
     }
 
-    fn parse(&self, location: &StorePath) -> Option<KeyRef> {
-        let rel = location.as_ref().strip_prefix(self.root.as_str())?.strip_prefix('/')?;
-        let parts: Vec<&str> = rel.split('/').collect();
-        if parts.len() < 2 {
-            return None;
-        }
-        let level = Level::parse(parts[0])?;
-        let key = parts[parts.len() - 1].to_owned();
-        let scope = parts[1..parts.len() - 1].join("/");
-        if !valid_key(&key) {
+    fn scope_prefix(&self, level: Level, scope: &str) -> String {
+        format!(
+            "{}{REDIS_SEP}{}{REDIS_SEP}{scope}{REDIS_SEP}",
+            self.prefix,
+            level.as_str()
+        )
+    }
+
+    fn parse(&self, name: &str) -> Option<KeyRef> {
+        let rest = name.strip_prefix(self.prefix.as_str())?.strip_prefix(REDIS_SEP)?;
+        let mut parts = rest.splitn(3, REDIS_SEP);
+        let level = Level::parse(parts.next()?)?;
+        let scope = parts.next()?.to_owned();
+        let key = parts.next()?.to_owned();
+        if !valid_key(&key) || (level != Level::Global && !valid_scope(&scope)) {
             return None;
         }
         Some(KeyRef { level, scope, key })
     }
 }
 
-/// Header and value length of a stored envelope; `None` when the object is not one of ours.
+/// Header and value length of a stored envelope; `None` when the value is not one of ours.
 fn split(bytes: &[u8]) -> Option<(Envelope, usize)> {
     let nl = bytes.iter().position(|b| *b == b'\n')?;
     let header: Envelope = serde_json::from_slice(&bytes[..nl]).ok()?;
     Some((header, bytes.len() - nl - 1))
 }
 
-/// Entry from a stored envelope, `None` when expired or unreadable.
-fn decode(bytes: &Bytes) -> Option<Entry> {
-    let (header, _) = split(bytes)?;
-    let now = now_unix();
-    if header.expires_at.is_some_and(|x| x <= now) {
-        return None;
-    }
+/// Entry from a stored envelope and the Redis TTL (`-1` none, `-2` gone).
+fn decode(bytes: Bytes, ttl: i64) -> Option<Entry> {
+    let (header, _) = split(&bytes)?;
     let nl = bytes.iter().position(|b| *b == b'\n')?;
     Some(Entry {
         value: bytes.slice(nl + 1..),
         content_type: header.ct,
-        expires: header
-            .expires_at
-            .map(|x| Instant::now() + Duration::from_secs(x.saturating_sub(now))),
+        expires: (ttl >= 0).then(|| Instant::now() + Duration::from_secs(ttl as u64)),
         secret: header.secret,
     })
 }
@@ -643,9 +625,12 @@ fn disabled() -> Response {
     )
 }
 
-fn store_failed(e: &StoreError) -> Response {
-    tracing::warn!(error = %e, "key-value store operation failed");
-    text(StatusCode::BAD_GATEWAY, "nx-remote-cache: key-value store unavailable")
+fn redis_failed(e: &redis::RedisError) -> Response {
+    tracing::warn!(error = %e, "key-value store: redis operation failed");
+    text(
+        StatusCode::BAD_GATEWAY,
+        "nx-remote-cache: key-value store (redis) unavailable",
+    )
 }
 
 fn value_response(entry: Entry) -> Response {
@@ -746,7 +731,7 @@ pub async fn put_kv(
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(KvError::TooLarge) => too_large(),
         Err(KvError::Disabled) => disabled(),
-        Err(KvError::Store(e)) => store_failed(&e),
+        Err(KvError::Redis(e)) => redis_failed(&e),
     }
 }
 
@@ -774,7 +759,7 @@ pub async fn get_kv(
     match state.kv.get(level, &scope, &key).await {
         Ok(Some(entry)) => value_response(entry),
         Ok(None) => text(StatusCode::NOT_FOUND, "nx-remote-cache: no such key"),
-        Err(KvError::Store(e)) => store_failed(&e),
+        Err(KvError::Redis(e)) => redis_failed(&e),
         Err(_) => disabled(),
     }
 }
@@ -809,7 +794,7 @@ pub async fn delete_kv(
     match state.kv.delete(level, &scope, &key).await {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => text(StatusCode::NOT_FOUND, "nx-remote-cache: no such key"),
-        Err(KvError::Store(e)) => store_failed(&e),
+        Err(KvError::Redis(e)) => redis_failed(&e),
         Err(_) => disabled(),
     }
 }
@@ -842,7 +827,7 @@ pub async fn list_kv(State(state): State<AppState>, Query(q): Query<KvQuery>, he
         .await
     {
         Ok(keys) => Json(ListResponse { level, scope, keys }).into_response(),
-        Err(KvError::Store(e)) => store_failed(&e),
+        Err(KvError::Redis(e)) => redis_failed(&e),
         Err(_) => disabled(),
     }
 }
@@ -882,7 +867,7 @@ pub async fn dashboard_list(State(state): State<AppState>) -> Response {
     let keys = if state.kv.enabled() {
         match state.kv.list_all(MAX_LIST_LIMIT).await {
             Ok(keys) => keys,
-            Err(KvError::Store(e)) => return store_failed(&e),
+            Err(KvError::Redis(e)) => return redis_failed(&e),
             Err(_) => Vec::new(),
         }
     } else {
@@ -917,7 +902,7 @@ pub async fn dashboard_value(State(state): State<AppState>, Query(q): Query<Valu
     match state.kv.get(level, &scope, &q.key).await {
         Ok(Some(entry)) => value_response(entry),
         Ok(None) => text(StatusCode::NOT_FOUND, "nx-remote-cache: no such key"),
-        Err(KvError::Store(e)) => store_failed(&e),
+        Err(KvError::Redis(e)) => redis_failed(&e),
         Err(_) => disabled(),
     }
 }
@@ -925,7 +910,6 @@ pub async fn dashboard_value(State(state): State<AppState>, Query(q): Query<Valu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use object_store::memory::InMemory;
 
     const G: Level = Level::Global;
     const TEXT: &str = "text/plain";
@@ -1026,14 +1010,18 @@ mod tests {
         assert!(kv.list(G, "", "", 10).await.unwrap().is_empty());
     }
 
+    /// Needs a Redis: `NX_CACHE_TEST_REDIS_URL=redis://127.0.0.1:6379/` (skipped otherwise).
     #[tokio::test]
-    async fn store_backend_is_shared_between_pods() {
-        // Two servers (two pods) over one object store see the same keys.
-        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
-        let prefix = StorePath::from("cache");
-        let pod_a = KvStore::with_store(1 << 20, 1 << 16, store.clone(), &prefix);
-        let pod_b = KvStore::with_store(1 << 20, 1 << 16, store.clone(), &prefix);
-        assert_eq!(pod_a.backend(), Backend::Store);
+    async fn redis_backend_is_shared_between_pods() {
+        let Ok(url) = std::env::var("NX_CACHE_TEST_REDIS_URL") else {
+            eprintln!("NX_CACHE_TEST_REDIS_URL not set, skipping");
+            return;
+        };
+        let prefix = format!("nxrc-test:{}", std::process::id());
+        let pod_a = KvStore::with_redis(1 << 20, 1 << 16, &url, &prefix).unwrap();
+        let pod_b = KvStore::with_redis(1 << 20, 1 << 16, &url, &prefix).unwrap();
+        assert_eq!(pod_a.backend(), Backend::Redis);
+        pod_a.probe().await.unwrap();
         pod_a
             .set(
                 Level::Run,
@@ -1058,70 +1046,53 @@ mod tests {
             )
             .await
             .unwrap();
+        pod_a
+            .set(
+                G,
+                "",
+                "bin",
+                Bytes::from_static(&[0, 1, 2, 10, 255]),
+                "application/octet-stream".into(),
+                None,
+                false,
+            )
+            .await
+            .unwrap();
         let seen = pod_b.get(Level::Run, "42", "token").await.unwrap().unwrap();
         assert_eq!(seen.value, Bytes::from_static(b"s3cr3t"));
         assert!(seen.secret);
         assert!(seen.expires.is_some());
+        assert_eq!(seen.content_type, TEXT);
+        // Binary values with a newline inside survive the envelope.
+        assert_eq!(
+            pod_b.get(G, "", "bin").await.unwrap().unwrap().value,
+            Bytes::from_static(&[0, 1, 2, 10, 255])
+        );
         assert!(pod_b.get(Level::Run, "43", "token").await.unwrap().is_none());
         let all = pod_b.list_all(10).await.unwrap();
-        assert_eq!(all.len(), 2);
-        assert_eq!(all[0].level, Level::Pipeline);
-        assert_eq!(all[0].scope, "org/app");
-        assert_eq!(all[1].key, "token");
-        assert_eq!(all[1].size, 6);
-        assert_eq!(pod_b.stats().items, 2);
+        assert_eq!(all.len(), 3);
+        assert_eq!(all[0].level, G);
+        assert_eq!(all[1].scope, "org/app");
+        assert_eq!(all[2].key, "token");
+        assert_eq!(all[2].size, 6);
+        assert!(all[2].expires_in_secs.is_some_and(|s| (55..=60).contains(&s)));
+        assert_eq!(pod_b.stats().items, 3);
         let scoped = pod_b.list(Level::Pipeline, "org/app", "bu", 10).await.unwrap();
         assert_eq!(scoped.len(), 1);
         assert!(pod_b.delete(Level::Run, "42", "token").await.unwrap());
         assert!(!pod_a.delete(Level::Run, "42", "token").await.unwrap());
         assert!(pod_a.get(Level::Run, "42", "token").await.unwrap().is_none());
-        // Keys live under <prefix>/kv/, apart from the artifacts.
-        let objects: Vec<String> = store
-            .list(None)
-            .map_ok(|m| m.location.to_string())
-            .try_collect()
-            .await
-            .unwrap();
-        assert_eq!(objects, vec!["cache/kv/pipeline/org/app/build".to_string()]);
-    }
-
-    #[tokio::test]
-    async fn store_backend_expiry() {
-        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
-        let kv = KvStore::with_store(1 << 20, 1 << 16, store, &StorePath::from(""));
-        // A TTL is rounded up to one second; write an already-expired envelope by hand instead.
-        kv.set(
-            G,
-            "",
-            "fresh",
-            Bytes::from_static(b"1"),
-            TEXT.into(),
-            Some(Duration::from_secs(60)),
-            false,
-        )
-        .await
-        .unwrap();
-        let shared = kv.shared.as_ref().unwrap();
-        let stale = format!(
-            "{{\"ct\":\"text/plain\",\"secret\":false,\"expires_at\":{}}}\nold",
-            now_unix() - 1
-        );
-        shared
-            .store
-            .put(&shared.path(G, "", "stale"), PutPayload::from(stale.into_bytes()))
-            .await
-            .unwrap();
-        assert!(kv.get(G, "", "stale").await.unwrap().is_none());
-        let all = kv.list_all(10).await.unwrap();
-        assert_eq!(all.len(), 1);
-        assert_eq!(all[0].key, "fresh");
-        assert!(all[0].expires_in_secs.is_some_and(|s| (55..=60).contains(&s)));
+        for (l, s, k) in [(G, "", "bin"), (Level::Pipeline, "org/app", "build")] {
+            pod_a.delete(l, s, k).await.unwrap();
+        }
+        assert!(pod_b.list_all(10).await.unwrap().is_empty());
     }
 
     #[test]
     fn keys_and_scopes() {
         assert!(valid_key("last-green:main@v1.2"));
         assert!(!valid_key("a/b"));
+        assert!(!valid_key("a|b"));
         assert!(!valid_key(""));
         assert!(!valid_key(&"k".repeat(201)));
         assert!(valid_scope("org/app"));
