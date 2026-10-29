@@ -6,6 +6,7 @@
 pub mod app;
 pub mod auth;
 pub mod config;
+pub mod kv;
 pub mod memcache;
 pub mod routes;
 pub mod stats;

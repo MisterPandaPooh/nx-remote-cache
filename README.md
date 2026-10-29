@@ -113,6 +113,9 @@ recorded as metadata (`nx_run`, `nx_repo`, ...), see [CI runs](#link-artifacts-t
 
 ## Configuration
 
+The short list; every variable, with units and sizing notes, is in
+[`docs/configuration.md`](docs/configuration.md).
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `NX_CACHE_STORE_URL` | required | store, see above |
@@ -134,7 +137,9 @@ recorded as metadata (`nx_run`, `nx_repo`, ...), see [CI runs](#link-artifacts-t
 | `NX_CACHE_UI_ENABLED` | `true` | serve the dashboard at `/` |
 | `NX_CACHE_UI_TOKEN` | | dedicated dashboard token (any cache token also works) |
 | `NX_CACHE_UI_TRUSTED_HEADER` | | header set by an SSO proxy that opens the dashboard, e.g. `X-Auth-Request-Email` |
-| `NX_CACHE_LOG_FORMAT`, `RUST_LOG` | `json`, `info` | logs |
+| `NX_CACHE_KV_BYTES`, `NX_CACHE_KV_MAX_VALUE` | `64MB`, `1MB` | in-memory key-value store (`/v1/kv`), `0` disables it |
+| `NX_CACHE_LOG_LEVEL`, `NX_CACHE_LOG_FORMAT` | `info`, `json` | level (`error`…`trace`), format (`json`, `pretty`, `compact`); `RUST_LOG` overrides the level |
+| `NX_CACHE_ACCESS_LOG` | `false` | one `info` line per request (otherwise `debug`, failures `warn`) |
 
 Sizes accept `B/KB/MB/GB`, durations `s/m/h/d/w`.
 
@@ -144,6 +149,8 @@ Measured with the included load generator against every server running in a cont
 same machine, same S3 bucket (S3Mock) or same RAM-backed disk, 32 concurrent connections, 1,000
 requests per phase (400 for 4 MB artifacts) after an unmeasured warm-up. Full tables, method and how to rerun:
 [`bench/RESULTS.md`](bench/RESULTS.md).
+
+<p align="center"><img src="images/benchmark.svg" width="920" alt="Benchmark: requests per second per server, per artifact size"></p>
 
 <!-- BENCH:START -->
 **4 KB artifacts** · PUT req/s · GET hit req/s (MB/s) · GET miss p50 / p99
@@ -219,7 +226,16 @@ Deleting is always safe: a missing artifact is a cache miss and Nx rebuilds the 
   entered once in the browser, or trusts an SSO proxy header. Keycloak/OIDC, SAML through
   Keycloak brokering, and Kong Gateway recipes: [`deploy/sso/`](deploy/sso/README.md).
 - **Server**: hashes are validated (`[A-Za-z0-9_-]{1,128}`), uploads are size-capped and
-  concurrency-capped, credentials never appear in logs or in `/api/v1/stats`.
+  concurrency-capped, credentials never appear in logs or in `/api/v1/stats`. Responses carry
+  `nosniff`, the dashboard a strict CSP, `Referrer-Policy: no-referrer` and `X-Frame-Options`.
+- **Trusted header**: with `NX_CACHE_UI_TRUSTED_HEADER` set, any request carrying that header is
+  let into the dashboard API. Expose the server only through the proxy that sets it, and make
+  sure the proxy strips the header from client requests.
+- **Unauthenticated by design**: `/metrics`, `/healthz`, `/readyz` (counters only, no hashes).
+- **Tokens**: generate them with 32 random bytes (`openssl rand -hex 32`); the `?token=` form
+  for the dashboard is read once and removed from the URL.
+- **TLS** is terminated by the ingress; the server speaks plain HTTP (h1, h2c).
+- Disclosure policy and a fuller threat model: [`SECURITY.md`](SECURITY.md).
 
 ## Use it from GitHub Actions
 
@@ -264,6 +280,28 @@ stored as blob metadata on upload). The dashboard turns that into links to the G
 - Logs: one JSON line per cache request with method, path, status and latency.
 
 Stats are per pod and in memory; they reset on restart. Point Prometheus at `/metrics` for history.
+
+<p align="center"><img src="images/connect.png" width="560" alt="Dashboard token prompt"></p>
+
+## Key-value store
+
+Beside the cache, `/v1/kv` is a small in-memory LRU store for CI glue that has nothing to do
+with Nx: a feature flag, the last green commit, a JSON blob shared between jobs. Values keep
+the `Content-Type` they were stored with (JSON is validated, anything else is stored verbatim:
+strings, numbers, binary), every key can carry a TTL, and the same tokens apply (read-only
+tokens can only read).
+
+```bash
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data '{"canary":true,"ratio":0.25}' "https://nx-cache.example.com/v1/kv/flags?ttl=12h"
+curl -H "Authorization: Bearer $TOKEN" https://nx-cache.example.com/v1/kv/flags      # 200, application/json
+curl -H "Authorization: Bearer $TOKEN" "https://nx-cache.example.com/v1/kv?prefix=fl" # {"keys":[...]}
+curl -X DELETE -H "Authorization: Bearer $TOKEN" https://nx-cache.example.com/v1/kv/flags
+```
+
+Budget `NX_CACHE_KV_BYTES` (64 MB, LRU eviction), value cap `NX_CACHE_KV_MAX_VALUE` (1 MB),
+keys `[A-Za-z0-9_.:@-]{1,200}`. The store lives in one process: with several replicas, pin
+`/v1/kv` to one of them at the ingress, or accept per-pod views. Full API: [`docs/api.md`](docs/api.md).
 
 ## Spec conformance
 

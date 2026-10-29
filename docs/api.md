@@ -70,3 +70,27 @@ Server-Sent Events; each `data:` line is one event object as above.
 }
 ```
 `ttl_seconds`, `max_total_bytes` and `last_sweep` are `null` when retention is off.
+
+## Key-value store
+
+Not part of the Nx API. An in-memory LRU store for small values that CI jobs share, with the same
+bearer tokens as the cache (read-only tokens may only `GET`). Disabled with `NX_CACHE_KV_BYTES=0`
+(every route then answers 404).
+
+| Method and path | Request | Responses |
+|---|---|---|
+| `PUT /v1/kv/{key}[?ttl=30s]` | body = the value, `Content-Type` kept as is (default `application/octet-stream`); `application/json` bodies are validated | `204` stored · `400` bad key, bad TTL or invalid JSON · `401` · `403` read-only token · `413` above `NX_CACHE_KV_MAX_VALUE` |
+| `GET /v1/kv/{key}` | | `200` with the stored `Content-Type`, `Cache-Control: no-store`, `x-kv-expires-in: <seconds>` when a TTL is set · `404` unknown or expired |
+| `DELETE /v1/kv/{key}` | | `204` · `404` · `403` read-only token |
+| `GET /v1/kv[?prefix=p&limit=100]` | | `200 {"keys":[{"key","size","content_type","expires_in_secs"?}]}`, sorted, at most 1000 |
+
+Keys match `[A-Za-z0-9_.:@-]{1,200}`. TTLs accept `45s`, `10m`, `12h`, `7d` or seconds. When the
+budget is exceeded the least recently read or written key is evicted first; expired keys go on
+access or eviction. Metrics: `nx_cache_kv_items`, `nx_cache_kv_bytes`.
+
+```bash
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: text/plain" --data 'a1b2c3d' \
+  "$SERVER/v1/kv/last-green:main"
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data '42' \
+  "$SERVER/v1/kv/build-number?ttl=7d"
+```

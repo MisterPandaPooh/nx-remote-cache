@@ -30,6 +30,9 @@ pub struct Config {
     /// `max_concurrent_puts * max(inline_put_threshold, multipart_chunk_bytes * multipart_concurrency)`.
     pub max_concurrent_puts: usize,
     /// Delete artifacts older than this (by store modification time). `None` keeps them forever.
+    /// Budget of the side key-value store (`/v1/kv`); 0 disables it.
+    pub kv_bytes: u64,
+    pub kv_max_value: u64,
     pub ttl: Option<Duration>,
     /// When the prefix holds more than this many bytes, delete the oldest artifacts down to 90 %.
     pub max_total_bytes: Option<u64>,
@@ -39,7 +42,11 @@ pub struct Config {
     /// Name of a header set by an authenticating reverse proxy (oauth2-proxy, Pomerium...).
     /// A dashboard request carrying it passes the guard; the service must then only be reachable through that proxy.
     pub ui_trusted_header: Option<String>,
-    pub log_json: bool,
+    pub log_format: LogFormat,
+    /// Base level (`error`..`trace`); `RUST_LOG` overrides it with full filter directives.
+    pub log_level: String,
+    /// Log every request at `info` (otherwise requests are `debug`, failures `warn`).
+    pub access_log: bool,
     pub pod_name: String,
     pub shutdown_grace: Duration,
 }
@@ -84,6 +91,8 @@ impl Config {
             memory_cache_bytes: env_size("NX_CACHE_MEMORY_CACHE_BYTES", 256 << 20)?,
             memory_cache_max_item: env_size("NX_CACHE_MEMORY_CACHE_MAX_ITEM", 4 << 20)?,
             max_concurrent_puts: env_parse::<usize>("NX_CACHE_MAX_CONCURRENT_PUTS", 64)?.max(1),
+            kv_bytes: env_size("NX_CACHE_KV_BYTES", 64 << 20)?,
+            kv_max_value: env_size("NX_CACHE_KV_MAX_VALUE", 1 << 20)?,
             ttl: env_duration("NX_CACHE_TTL")?,
             max_total_bytes: match std::env::var("NX_CACHE_MAX_TOTAL_BYTES") {
                 Ok(v) if !v.trim().is_empty() => Some(env_size("NX_CACHE_MAX_TOTAL_BYTES", 0)?),
@@ -95,9 +104,9 @@ impl Config {
             ui_trusted_header: std::env::var("NX_CACHE_UI_TRUSTED_HEADER")
                 .ok()
                 .filter(|s| !s.is_empty()),
-            log_json: std::env::var("NX_CACHE_LOG_FORMAT")
-                .map(|v| v != "pretty")
-                .unwrap_or(true),
+            log_format: LogFormat::from_env()?,
+            log_level: log_level_from_env()?,
+            access_log: env_bool("NX_CACHE_ACCESS_LOG", false)?,
             pod_name: std::env::var("HOSTNAME").unwrap_or_else(|_| "local".into()),
             shutdown_grace: Duration::from_secs(env_parse("NX_CACHE_SHUTDOWN_GRACE_SECS", 20)?),
         })
@@ -121,16 +130,48 @@ impl Config {
             memory_cache_bytes: 8 << 20,
             memory_cache_max_item: 1 << 20,
             max_concurrent_puts: 8,
+            kv_bytes: 1 << 20,
+            kv_max_value: 64 << 10,
             ttl: None,
             max_total_bytes: None,
             sweep_interval: Duration::from_secs(3600),
             ui_enabled: true,
             ui_token: None,
             ui_trusted_header: None,
-            log_json: false,
+            log_format: LogFormat::Pretty,
+            log_level: "info".into(),
+            access_log: false,
             pod_name: "test".into(),
             shutdown_grace: Duration::from_secs(1),
         }
+    }
+}
+
+/// `NX_CACHE_LOG_FORMAT`: one JSON object per line (default), human `pretty`, or `compact`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LogFormat {
+    Json,
+    Pretty,
+    Compact,
+}
+
+impl LogFormat {
+    fn from_env() -> Result<Self> {
+        match std::env::var("NX_CACHE_LOG_FORMAT").as_deref().map(str::trim) {
+            Err(_) | Ok("") | Ok("json") => Ok(Self::Json),
+            Ok("pretty") | Ok("text") => Ok(Self::Pretty),
+            Ok("compact") => Ok(Self::Compact),
+            Ok(other) => bail!("NX_CACHE_LOG_FORMAT=`{other}`: use json, pretty or compact"),
+        }
+    }
+}
+
+fn log_level_from_env() -> Result<String> {
+    let level = std::env::var("NX_CACHE_LOG_LEVEL").unwrap_or_else(|_| "info".into());
+    let level = level.trim().to_ascii_lowercase();
+    match level.as_str() {
+        "error" | "warn" | "info" | "debug" | "trace" | "off" => Ok(level),
+        other => bail!("NX_CACHE_LOG_LEVEL=`{other}`: use error, warn, info, debug, trace or off"),
     }
 }
 

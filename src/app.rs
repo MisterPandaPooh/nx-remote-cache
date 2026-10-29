@@ -9,6 +9,7 @@ use axum::Router;
 
 use crate::auth::Tokens;
 use crate::config::Config;
+use crate::kv;
 use crate::routes;
 use crate::stats::Stats;
 use crate::store::CacheStore;
@@ -27,6 +28,7 @@ pub struct Inner {
     /// Bounds uploads in flight, and with them the server's memory.
     pub put_permits: tokio::sync::Semaphore,
     pub memcache: crate::memcache::MemCache,
+    pub kv: crate::kv::KvStore,
 }
 
 impl AppState {
@@ -34,6 +36,7 @@ impl AppState {
         let tokens = Tokens::new(&config.rw_tokens, &config.ro_tokens, config.allow_anonymous);
         let put_permits = tokio::sync::Semaphore::new(config.max_concurrent_puts);
         let memcache = crate::memcache::MemCache::new(config.memory_cache_bytes, config.memory_cache_max_item);
+        let kv = crate::kv::KvStore::new(config.kv_bytes, config.kv_max_value);
         Self(Arc::new(Inner {
             config,
             store,
@@ -41,6 +44,7 @@ impl AppState {
             stats: Stats::new(),
             put_permits,
             memcache,
+            kv,
         }))
     }
 
@@ -100,6 +104,8 @@ pub fn router(state: AppState) -> Router {
 
     let mut app = Router::new()
         .route("/v1/cache/{hash}", get(routes::get_artifact).put(routes::put_artifact))
+        .route("/v1/kv", get(kv::list_kv))
+        .route("/v1/kv/{key}", get(kv::get_kv).put(kv::put_kv).delete(kv::delete_kv))
         .route("/healthz", get(routes::healthz))
         .route("/readyz", get(routes::readyz))
         .route("/metrics", get(routes::metrics))
@@ -112,23 +118,34 @@ pub fn router(state: AppState) -> Router {
     }
 
     app.layer(DefaultBodyLimit::disable())
-        .layer(middleware::from_fn(access_log))
+        .layer(middleware::from_fn_with_state(state.clone(), access_log))
         .with_state(state)
 }
 
-/// One structured log line per request at `debug` (cache traffic can reach tens of thousands of
-/// requests per second; the event feed and metrics are the production view). Errors stay at `warn`.
-async fn access_log(req: Request, next: Next) -> Response {
+/// One structured log line per request: `info` with `NX_CACHE_ACCESS_LOG=true`, otherwise
+/// `debug` (cache traffic can reach tens of thousands of requests per second; the event feed
+/// and metrics are the production view). Failures are always `warn`.
+async fn access_log(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let method = req.method().clone();
     let path = req.uri().path().to_owned();
+    let length = req
+        .headers()
+        .get(axum::http::header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok()?.parse::<u64>().ok());
     let start = Instant::now();
-    let res = next.run(req).await;
+    let mut res = next.run(req).await;
+    res.headers_mut().insert(
+        axum::http::header::X_CONTENT_TYPE_OPTIONS,
+        axum::http::HeaderValue::from_static("nosniff"),
+    );
     let status = res.status().as_u16();
     let ms = start.elapsed().as_secs_f64() * 1000.0;
     if status >= 500 {
-        tracing::warn!(target: "access", %method, %path, status, ms = format_args!("{ms:.2}"), "request failed");
+        tracing::warn!(target: "access", %method, %path, status, length, ms = format_args!("{ms:.2}"), "request failed");
+    } else if state.config.access_log {
+        tracing::info!(target: "access", %method, %path, status, length, ms = format_args!("{ms:.2}"), "request");
     } else {
-        tracing::debug!(target: "access", %method, %path, status, ms = format_args!("{ms:.2}"), "request");
+        tracing::debug!(target: "access", %method, %path, status, length, ms = format_args!("{ms:.2}"), "request");
     }
     res
 }

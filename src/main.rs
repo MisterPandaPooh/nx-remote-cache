@@ -2,6 +2,7 @@ use anyhow::Context;
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
 
+use nx_remote_cache::config::LogFormat;
 use nx_remote_cache::store::CacheStore;
 use nx_remote_cache::{install_crypto_provider, router, AppState, Config};
 
@@ -14,7 +15,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 async fn main() -> anyhow::Result<()> {
     install_crypto_provider();
     let config = Config::from_env()?;
-    init_tracing(config.log_json);
+    init_tracing(config.log_format, &config.log_level);
 
     let store = CacheStore::open(&config).await.context("opening the artifact store")?;
     if let Err(e) = store.probe().await {
@@ -46,13 +47,15 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn init_tracing(json: bool) {
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let builder = tracing_subscriber::fmt().with_env_filter(filter).with_target(false);
-    if json {
-        builder.json().flatten_event(true).init();
-    } else {
-        builder.init();
+/// `NX_CACHE_LOG_LEVEL` sets the base level; `RUST_LOG` (full tracing directives such as
+/// `info,access=debug,object_store=trace`) wins when it is set.
+fn init_tracing(format: LogFormat, level: &str) {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
+    let builder = tracing_subscriber::fmt().with_env_filter(filter).with_target(true);
+    match format {
+        LogFormat::Json => builder.json().flatten_event(true).init(),
+        LogFormat::Pretty => builder.init(),
+        LogFormat::Compact => builder.compact().init(),
     }
 }
 

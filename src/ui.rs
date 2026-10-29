@@ -1,7 +1,7 @@
 //! Serves the embedded dashboard built from `ui/` (see `ui/README.md`).
 
 use axum::body::Body;
-use axum::http::{header, StatusCode, Uri};
+use axum::http::{header, HeaderValue, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use rust_embed::RustEmbed;
 
@@ -37,12 +37,24 @@ fn asset_response(path: &str, data: Vec<u8>) -> Response {
     } else {
         "no-cache"
     };
-    (
+    let mut res = (
         [
             (header::CONTENT_TYPE, mime.as_ref().to_string()),
             (header::CACHE_CONTROL, cache.to_string()),
         ],
         Body::from(data),
     )
-        .into_response()
+        .into_response();
+    if path.ends_with(".html") {
+        let h = res.headers_mut();
+        // The dashboard only ever talks to its own origin; no referrer so a `?token=` in the
+        // URL never leaks to a linked site.
+        h.insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(CSP));
+        h.insert(header::REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
+        h.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
+    }
+    res
 }
+
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; \
+                   font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";

@@ -401,7 +401,13 @@ impl Stats {
     }
 
     /// Prometheus text exposition.
-    pub fn prometheus(&self, version: &str, store_kind: &str, mem: &crate::memcache::MemCacheStats) -> String {
+    pub fn prometheus(
+        &self,
+        version: &str,
+        store_kind: &str,
+        mem: &crate::memcache::MemCacheStats,
+        kv: crate::kv::KvStats,
+    ) -> String {
         use std::fmt::Write;
         let c = self.counters();
         let mut out = String::with_capacity(4096);
@@ -427,6 +433,8 @@ impl Stats {
         let _ = writeln!(out, "# HELP nx_cache_memory_tier_hits_total Hits served from the in-memory tier.\n# TYPE nx_cache_memory_tier_hits_total counter\nnx_cache_memory_tier_hits_total {}", mem.hits);
         let _ = writeln!(out, "# HELP nx_cache_memory_tier_bytes Bytes currently held in the in-memory tier.\n# TYPE nx_cache_memory_tier_bytes gauge\nnx_cache_memory_tier_bytes {}", mem.bytes);
         let _ = writeln!(out, "# HELP nx_cache_memory_tier_items Artifacts currently held in the in-memory tier.\n# TYPE nx_cache_memory_tier_items gauge\nnx_cache_memory_tier_items {}", mem.items);
+        let _ = writeln!(out, "# HELP nx_cache_kv_items Keys currently held in the key-value store.\n# TYPE nx_cache_kv_items gauge\nnx_cache_kv_items {}", kv.items);
+        let _ = writeln!(out, "# HELP nx_cache_kv_bytes Bytes currently held in the key-value store.\n# TYPE nx_cache_kv_bytes gauge\nnx_cache_kv_bytes {}", kv.bytes);
         let _ = writeln!(out, "# HELP nx_cache_retention_deleted_total Artifacts removed by the retention sweeper.\n# TYPE nx_cache_retention_deleted_total counter\nnx_cache_retention_deleted_total {}", self.swept_objects.load(Relaxed));
         let _ = writeln!(out, "# HELP nx_cache_retention_freed_bytes_total Bytes removed by the retention sweeper.\n# TYPE nx_cache_retention_freed_bytes_total counter\nnx_cache_retention_freed_bytes_total {}", self.swept_bytes.load(Relaxed));
         if let Some(sw) = self.last_sweep() {
@@ -514,7 +522,12 @@ mod tests {
         assert_eq!(ev.len(), 4);
         assert_eq!(ev[0].kind, Kind::Conflict);
         assert_eq!(ev[3].kind, Kind::Hit);
-        let prom = s.prometheus("t", "memory", &crate::memcache::MemCache::new(0, 0).stats());
+        let prom = s.prometheus(
+            "t",
+            "memory",
+            &crate::memcache::MemCache::new(0, 0).stats(),
+            Default::default(),
+        );
         assert!(prom.contains("nx_cache_requests_total{kind=\"hit\"} 1"));
         assert!(prom.contains("nx_cache_request_duration_seconds_bucket{route=\"put\",le=\"+Inf\"} 2"));
     }

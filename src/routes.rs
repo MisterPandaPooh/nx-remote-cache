@@ -21,7 +21,7 @@ use crate::store::{PutError, PutOutcome};
 const OCTET_STREAM: HeaderValue = HeaderValue::from_static("application/octet-stream");
 
 /// Nx shows these messages verbatim to the developer, so they say what to fix.
-fn text(status: StatusCode, msg: impl Into<String>) -> Response {
+pub(crate) fn text(status: StatusCode, msg: impl Into<String>) -> Response {
     (
         status,
         [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
@@ -38,7 +38,12 @@ pub fn valid_hash(hash: &str) -> bool {
 }
 
 #[allow(clippy::result_large_err)]
-fn authenticate(state: &AppState, headers: &HeaderMap, hash: &str, start: Instant) -> Result<Authenticated, Response> {
+pub(crate) fn authenticate(
+    state: &AppState,
+    headers: &HeaderMap,
+    hash: &str,
+    start: Instant,
+) -> Result<Authenticated, Response> {
     let auth = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok());
     state.tokens.authenticate(auth).map_err(|e| {
         state.stats.record(Kind::Unauthorized, hash, 0, start.elapsed(), 401);
@@ -333,7 +338,7 @@ pub async fn metrics(State(state): State<AppState>) -> Response {
         [(header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
         state
             .stats
-            .prometheus(VERSION, state.store.kind, &state.memcache.stats()),
+            .prometheus(VERSION, state.store.kind, &state.memcache.stats(), state.kv.stats()),
     )
         .into_response()
 }

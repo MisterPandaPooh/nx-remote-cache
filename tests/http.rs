@@ -556,3 +556,181 @@ async fn token_context_links_artifacts_to_ci_runs() {
     .unwrap();
     assert!(events["events"][0].get("ctx").is_none());
 }
+
+#[tokio::test]
+async fn kv_store_roundtrip_types_ttl_and_auth() {
+    let s = start(Config::for_tests("memory:///")).await;
+    let kv = |k: &str| s.url(&format!("/v1/kv/{k}"));
+
+    // JSON keeps its content type and is validated.
+    let res = s
+        .client
+        .put(kv("flags"))
+        .bearer_auth("rw-token")
+        .header("content-type", "application/json")
+        .body(r#"{"canary":true,"ratio":0.25}"#)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 204);
+    let res = s.client.get(kv("flags")).bearer_auth("ro-token").send().await.unwrap();
+    assert_eq!(res.status(), 200);
+    assert_eq!(res.headers()["content-type"], "application/json");
+    let body: serde_json::Value = serde_json::from_slice(&res.bytes().await.unwrap()).unwrap();
+    assert_eq!(body["ratio"], 0.25);
+    let res = s
+        .client
+        .put(kv("bad"))
+        .bearer_auth("rw-token")
+        .header("content-type", "application/json")
+        .body("{not json")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 400);
+
+    // Strings and numbers are stored verbatim with their content type.
+    for (key, body) in [("last-green", "a1b2c3d"), ("build-number", "4242")] {
+        let res = s
+            .client
+            .put(kv(key))
+            .bearer_auth("rw-token")
+            .header("content-type", "text/plain")
+            .body(body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 204);
+        let res = s.client.get(kv(key)).bearer_auth("rw-token").send().await.unwrap();
+        assert!(res.headers()["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("text/plain"));
+        assert_eq!(res.text().await.unwrap(), body);
+    }
+
+    // Listing, prefix filter, read-only token cannot write or delete.
+    let res = s
+        .client
+        .get(s.url("/v1/kv?prefix=la"))
+        .bearer_auth("ro-token")
+        .send()
+        .await
+        .unwrap();
+    let list: serde_json::Value = serde_json::from_slice(&res.bytes().await.unwrap()).unwrap();
+    assert_eq!(list["keys"].as_array().unwrap().len(), 1);
+    assert_eq!(list["keys"][0]["key"], "last-green");
+    assert_eq!(
+        s.client
+            .put(kv("x"))
+            .bearer_auth("ro-token")
+            .body("1")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    assert_eq!(
+        s.client
+            .delete(kv("flags"))
+            .bearer_auth("ro-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    assert_eq!(s.client.get(kv("flags")).send().await.unwrap().status(), 401);
+
+    // TTL: present, then gone; delete answers 204 then 404.
+    let res = s
+        .client
+        .put(s.url("/v1/kv/short?ttl=1s"))
+        .bearer_auth("rw-token")
+        .body("soon")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 204);
+    let res = s.client.get(kv("short")).bearer_auth("rw-token").send().await.unwrap();
+    assert_eq!(res.status(), 200);
+    assert!(res.headers().contains_key("x-kv-expires-in"));
+    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+    assert_eq!(
+        s.client
+            .get(kv("short"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    assert_eq!(
+        s.client
+            .delete(kv("flags"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        204
+    );
+    assert_eq!(
+        s.client
+            .delete(kv("flags"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+
+    // Values above NX_CACHE_KV_MAX_VALUE (64 KiB in tests) are refused; bad keys and TTLs too.
+    let big = vec![b'x'; (64 << 10) + 1];
+    assert_eq!(
+        s.client
+            .put(kv("big"))
+            .bearer_auth("rw-token")
+            .body(big)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        413
+    );
+    assert_eq!(
+        s.client
+            .put(kv("a%2Fb"))
+            .bearer_auth("rw-token")
+            .body("1")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        400
+    );
+    let res = s
+        .client
+        .put(s.url("/v1/kv/k?ttl=1y"))
+        .bearer_auth("rw-token")
+        .body("1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 400);
+
+    // Metrics expose the store size.
+    let metrics = s
+        .client
+        .get(s.url("/metrics"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(metrics.contains("nx_cache_kv_items "));
+}

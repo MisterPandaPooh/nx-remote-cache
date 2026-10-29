@@ -44,7 +44,7 @@ runs:
         else
           echo "::warning::nx-remote-cache: restore returned HTTP $code, continuing without cache"; echo "hit=false" >> "$GITHUB_OUTPUT"
         fi
-    - uses: pyTooling/Actions/with-post-step@v1
+    - uses: pyTooling/Actions/with-post-step@1c42072471b9bb10cbe1c25b3d31560bc4517161 # v1.1.0
       if: inputs.save == 'true' && steps.restore.outputs.hit != 'true'
       with:
         main: "true"

@@ -30,6 +30,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: server
+          # Pin a release tag (or a digest) in production; `latest` is for trying it out.
           image: ghcr.io/misterpandapooh/nx-remote-cache:latest
           imagePullPolicy: IfNotPresent
           ports:
@@ -56,6 +57,11 @@ spec:
                   optional: true
             - name: NX_CACHE_MAX_ARTIFACT_BYTES
               value: 2GB
+            # Upload memory is bounded by max_concurrent_puts × max(inline threshold 8 MB,
+            # multipart chunk 8 MB × concurrency 4) = 16 × 32 MB = 512 MB worst case, plus the
+            # 256 MB memory tier: size the limit below accordingly.
+            - name: NX_CACHE_MAX_CONCURRENT_PUTS
+              value: "16"
             - name: RUST_LOG
               value: info
           resources:
@@ -63,7 +69,7 @@ spec:
               cpu: 100m
               memory: 64Mi
             limits:
-              memory: 512Mi
+              memory: 1Gi
           readinessProbe:
             httpGet:
               path: /readyz

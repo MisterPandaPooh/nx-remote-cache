@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="782" viewBox="0 0 1100 782" role="img" aria-label="nx-remote-cache benchmark">
+<rect width="1100" height="782" rx="14" fill="#0b1120"/>
+<text x="28" y="46" font-size="17" fill="#e2e8f0" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Throughput, requests per second, higher is better</text>
+<text x="28" y="66" font-size="12" fill="#94a3b8" text-anchor="start" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">32 connections, 1 000 requests per phase (400 at 4 MB), every server in a container on one Apple M4 Pro</text>
+<text x="28" y="102" font-size="14" fill="#e2e8f0" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">4 KB artifacts</text>
+<text x="28" y="126" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Object storage (S3Mock)</text>
+<text x="28" y="148" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT</text>
+<rect x="243" y="154" width="2" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="235" y="165" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
+<text x="251" y="165" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 263</text>
+<rect x="243" y="174" width="2" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="235" y="185" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
+<text x="251" y="185" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 247</text>
+<rect x="243" y="194" width="2" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="235" y="205" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-cache-server (Deno)</text>
+<text x="251" y="205" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">764</text>
+<text x="28" y="230" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit</text>
+<rect x="243" y="236" width="217" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="235" y="247" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
+<text x="466" y="247" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">139 215</text>
+<rect x="243" y="256" width="4" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="235" y="267" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
+<text x="253" y="267" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 347</text>
+<rect x="243" y="276" width="3" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="235" y="287" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-cache-server (Deno)</text>
+<text x="252" y="287" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 986</text>
+<text x="568" y="126" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Local disk (RAM-backed)</text>
+<text x="568" y="148" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT</text>
+<rect x="783" y="154" width="86" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="775" y="165" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
+<text x="875" y="165" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">50 984</text>
+<rect x="783" y="174" width="93" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="775" y="185" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-caching-server (Go)</text>
+<text x="882" y="185" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">55 563</text>
+<text x="568" y="210" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit</text>
+<rect x="783" y="216" width="217" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="775" y="227" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
+<text x="1006" y="227" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">129 013</text>
+<rect x="783" y="236" width="158" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="775" y="247" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-caching-server (Go)</text>
+<text x="947" y="247" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">93 779</text>
+<text x="28" y="324" font-size="14" fill="#e2e8f0" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">256 KB artifacts</text>
+<text x="28" y="348" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Object storage (S3Mock)</text>
+<text x="28" y="370" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT</text>
+<rect x="243" y="376" width="5" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="235" y="387" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
+<text x="254" y="387" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 104</text>
+<rect x="243" y="396" width="5" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="235" y="407" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
+<text x="254" y="407" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 119</text>
+<rect x="243" y="416" width="3" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="235" y="427" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-cache-server (Deno)</text>
+<text x="252" y="427" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">692</text>
+<text x="28" y="452" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit</text>
+<rect x="243" y="458" width="217" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="235" y="469" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
+<text x="466" y="469" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">52 914</text>
+<rect x="243" y="478" width="9" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="235" y="489" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
+<text x="258" y="489" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 090</text>
+<rect x="243" y="498" width="7" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="235" y="509" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-cache-server (Deno)</text>
+<text x="256" y="509" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 741</text>
+<text x="568" y="348" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Local disk (RAM-backed)</text>
+<text x="568" y="370" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT</text>
+<rect x="783" y="376" width="95" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="775" y="387" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
+<text x="884" y="387" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">22 534</text>
+<rect x="783" y="396" width="80" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="775" y="407" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-caching-server (Go)</text>
+<text x="869" y="407" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">19 041</text>
+<text x="568" y="432" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit</text>
+<rect x="783" y="438" width="182" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="775" y="449" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
+<text x="971" y="449" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">43 240</text>
+<rect x="783" y="458" width="217" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="775" y="469" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-caching-server (Go)</text>
+<text x="1006" y="469" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">51 449</text>
+<text x="28" y="546" font-size="14" fill="#e2e8f0" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">4 MB artifacts</text>
+<text x="28" y="570" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Object storage (S3Mock)</text>
+<text x="28" y="592" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT</text>
+<rect x="243" y="598" width="94" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="235" y="609" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
+<text x="343" y="609" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">430</text>
+<rect x="243" y="618" width="89" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="235" y="629" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
+<text x="338" y="629" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">409</text>
+<rect x="243" y="638" width="36" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="235" y="649" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-cache-server (Deno)</text>
+<text x="285" y="649" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">165</text>
+<text x="28" y="674" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit</text>
+<rect x="243" y="680" width="173" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="235" y="691" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
+<text x="422" y="691" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">796</text>
+<rect x="243" y="700" width="217" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="235" y="711" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
+<text x="466" y="711" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">997</text>
+<rect x="243" y="720" width="111" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="235" y="731" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-cache-server (Deno)</text>
+<text x="360" y="731" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">509</text>
+<text x="568" y="570" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Local disk (RAM-backed)</text>
+<text x="568" y="592" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT</text>
+<rect x="783" y="598" width="96" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="775" y="609" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
+<text x="885" y="609" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 897</text>
+<rect x="783" y="618" width="75" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="775" y="629" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-caching-server (Go)</text>
+<text x="864" y="629" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 278</text>
+<text x="568" y="654" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit</text>
+<rect x="783" y="660" width="133" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="775" y="671" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
+<text x="922" y="671" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">4 023</text>
+<rect x="783" y="680" width="217" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="775" y="691" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-caching-server (Go)</text>
+<text x="1006" y="691" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">6 551</text>
+<text x="28" y="764" font-size="11" fill="#64748b" text-anchor="start" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Memory-tier hits are served from RAM without a store round trip; the Go server streams disk hits with sendfile(2). Full tables: bench/RESULTS.md</text>
+</svg>
