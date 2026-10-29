@@ -2,6 +2,10 @@
 
 ## Use it from GitHub Actions
 
+Give pull-request builds the read-only token and keep the read-write token for trusted branches:
+that is what protects you from cache poisoning (CREEP, CVE-2025-36852), where an untrusted build
+pre-seeds the entry a trusted build will later look up. Details in [`SECURITY.md`](../SECURITY.md).
+
 [`examples/github-actions/nx-ci.yml`](../examples/github-actions/nx-ci.yml) is a complete workflow:
 read-only token on pull requests, read-write on `main`, a warm job after each merge, and a job
 summary with the hit rate.

@@ -33,6 +33,30 @@ Only the latest release and `main` receive security fixes.
 - **TLS** is terminated by your ingress or gateway; the server speaks plain HTTP (h1 and h2c).
 - Store credentials never appear in logs, `/api/v1/stats` or `/metrics`; URLs are redacted.
 
+## Cache poisoning by untrusted builds (CREEP, CVE-2025-36852)
+
+The attack: a build that untrusted people can influence (a pull request from a fork) holds a
+token that can write, computes or guesses the hash a trusted branch will produce later, and
+stores a malicious artifact under it first. The trusted build then replays it. Write-once
+semantics do not help: the attacker writes first and never has to overwrite.
+
+Whether you are exposed depends only on who holds a token that can write:
+
+- **Not exposed** when pull-request builds use `NX_CACHE_READ_TOKEN` (they can only read) and the
+  read-write `NX_CACHE_TOKEN` is reachable only from builds of trusted branches. This is the
+  layout of [`examples/github-actions/nx-ci.yml`](examples/github-actions/nx-ci.yml); on GitHub,
+  fork pull requests get no secrets at all.
+- **Exposed** when pull-request or otherwise untrusted builds hold the read-write token, when
+  `NX_CACHE_ENABLE_LOGIN=false` or `NX_CACHE_ALLOW_ANONYMOUS=true` runs on a network those builds
+  can reach, or when one token is shared by everyone "for simplicity".
+
+What the server gives you to stay on the right side: read-only tokens; a 403 (not a silent
+accept) when a read-only token tries to write; the uploading run recorded as object metadata
+and shown in the dashboard for every hit, so a poisoned artifact can be traced to the run that
+stored it; and with `?token=` never cached, no way to pick up a token from a URL. If untrusted
+builds still need a writable cache among themselves, give them a separate deployment or
+`store.prefix` with its own token, never the trusted one.
+
 ## Container and Kubernetes
 
 The image is `FROM scratch`, runs as uid 65534 with no shell, and the manifests set

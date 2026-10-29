@@ -36,7 +36,7 @@ naming the value.
 
 | Key | Default | Description |
 |---|---|---|
-| `auth.enabled` | `true` | `false` sets `NX_CACHE_ENABLE_LOGIN=false`: no token for the cache API, no login screen. Private networks only. |
+| `auth.enabled` | `true` | `false` sets `NX_CACHE_ENABLE_LOGIN=false`: no token for the cache API, no login screen. Private networks only: any build that can reach it can poison it (CREEP, see SECURITY.md). |
 | `auth.token`, `auth.readToken` | generated | Read-write and read-only (pull requests) tokens; empty values are generated once and reused on upgrade. |
 | `auth.existingSecret` | `""` | Your own secret; `auth.existingSecretTokenKey` / `auth.existingSecretReadTokenKey` name its entries. |
 | `server.uploads.*` | 2GB max, 8MB inline, 8MB × 4 multipart, 16 in flight | Upload limits; memory for uploads is bounded by `maxConcurrentPuts × max(inlineThreshold, multipartChunkSize × multipartConcurrency)`. |
