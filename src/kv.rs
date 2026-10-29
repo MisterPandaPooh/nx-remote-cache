@@ -159,6 +159,15 @@ impl Inner {
         self.order.push_back((full.to_owned(), self.generation));
         self.generation
     }
+
+    /// Drop stale queue pairs once the queue dwarfs the map (heavy re-reads under budget would
+    /// otherwise grow it without bound). Call after the map holds the touched key.
+    fn compact(&mut self) {
+        if self.order.len() > self.map.len() * 4 + 64 {
+            let Inner { map, order, .. } = self;
+            order.retain(|(k, g)| map.get(k).is_some_and(|s| s.generation == *g));
+        }
+    }
 }
 
 fn compose(level: Level, scope: &str, key: &str) -> String {
@@ -301,6 +310,7 @@ impl KvStore {
         while inner.bytes > self.budget {
             evict_one(&mut inner);
         }
+        inner.compact();
         Ok(())
     }
 
@@ -334,7 +344,9 @@ impl KvStore {
         let generation = inner.touch(&full);
         let stored = inner.map.get_mut(&full).expect("checked above");
         stored.generation = generation;
-        Ok(Some(stored.entry.clone()))
+        let entry = stored.entry.clone();
+        inner.compact();
+        Ok(Some(entry))
     }
 
     pub async fn delete(&self, level: Level, scope: &str, key: &str) -> Result<bool, KvError> {
@@ -768,11 +780,21 @@ pub async fn get_kv(
         Err(msg) => return text(StatusCode::BAD_REQUEST, msg),
     };
     match state.kv.get(level, &scope, &key).await {
+        Ok(Some(entry)) if entry.secret && auth.access != Access::ReadWrite => secret_forbidden(),
         Ok(Some(entry)) => value_response(entry),
         Ok(None) => text(StatusCode::NOT_FOUND, "nx-remote-cache: no such key"),
         Err(KvError::Redis(e)) => redis_failed(&e),
         Err(_) => disabled(),
     }
+}
+
+/// A value stored with `secret=true` is only served to the read-write token: the read-only
+/// one is handed to pull requests, which must not read what a trusted job stored for the next.
+fn secret_forbidden() -> Response {
+    text(
+        StatusCode::FORBIDDEN,
+        "nx-remote-cache: this key is a secret; only the read-write token can read it",
+    )
 }
 
 pub async fn delete_kv(
@@ -899,7 +921,13 @@ pub struct ValueQuery {
 }
 
 /// `GET /api/v1/kv/value?level=&scope=&key=` (dashboard guard): one value, for the reveal button.
-pub async fn dashboard_value(State(state): State<AppState>, Query(q): Query<ValueQuery>) -> Response {
+/// Secrets need the read-write cache token in `Authorization`; the dashboard token and the
+/// read-only token see the key, never the value.
+pub async fn dashboard_value(
+    State(state): State<AppState>,
+    Query(q): Query<ValueQuery>,
+    headers: HeaderMap,
+) -> Response {
     if !state.kv.enabled() {
         return disabled();
     }
@@ -910,7 +938,15 @@ pub async fn dashboard_value(State(state): State<AppState>, Query(q): Query<Valu
     if !valid_key(&q.key) || (level != Level::Global && !valid_scope(&scope)) {
         return text(StatusCode::BAD_REQUEST, "nx-remote-cache: invalid key or scope");
     }
+    let read_write = || {
+        let presented = crate::routes::presented_bearer(&headers, None);
+        state
+            .tokens
+            .authenticate(presented.as_deref())
+            .is_ok_and(|a| a.access == Access::ReadWrite)
+    };
     match state.kv.get(level, &scope, &q.key).await {
+        Ok(Some(entry)) if entry.secret && !read_write() => secret_forbidden(),
         Ok(Some(entry)) => value_response(entry),
         Ok(None) => text(StatusCode::NOT_FOUND, "nx-remote-cache: no such key"),
         Err(KvError::Redis(e)) => redis_failed(&e),
@@ -950,6 +986,19 @@ mod tests {
         assert!(kv.delete(G, "", "a").await.unwrap());
         assert!(!kv.delete(G, "", "a").await.unwrap());
         assert_eq!(kv.stats(), KvStats { items: 1, bytes: 30 });
+    }
+
+    #[tokio::test]
+    async fn lru_queue_stays_bounded_under_reads() {
+        let kv = KvStore::new(1000, 100);
+        kv.set(G, "", "hot", Bytes::from_static(b"1"), TEXT.into(), None, false)
+            .await
+            .unwrap();
+        for _ in 0..10_000 {
+            kv.get(G, "", "hot").await.unwrap();
+        }
+        let inner = kv.inner.lock().unwrap();
+        assert!(inner.order.len() <= inner.map.len() * 4 + 64, "{}", inner.order.len());
     }
 
     #[tokio::test]

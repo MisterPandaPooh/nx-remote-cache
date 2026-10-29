@@ -1,3 +1,5 @@
+use std::future::IntoFuture;
+
 use anyhow::Context;
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
@@ -40,9 +42,26 @@ async fn main() -> anyhow::Result<()> {
         max_artifact_bytes = config.max_artifact_bytes,
         "nx-remote-cache listening"
     );
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    // On SIGTERM: readiness flips to 503, the listener closes, in-flight requests get
+    // `shutdown_grace` to finish, then the process exits whatever is still open.
+    let grace = config.shutdown_grace;
+    let (signalled_tx, signalled_rx) = tokio::sync::oneshot::channel::<()>();
+    let draining = state.clone();
+    let server = axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            draining.draining.store(true, std::sync::atomic::Ordering::Relaxed);
+            let _ = signalled_tx.send(());
+        })
+        .into_future();
+    tokio::pin!(server);
+    tokio::select! {
+        r = &mut server => r?,
+        _ = async {
+            let _ = signalled_rx.await;
+            tokio::time::sleep(grace).await;
+        } => tracing::warn!(grace_secs = grace.as_secs(), "shutdown grace elapsed, exiting with requests in flight"),
+    }
     tracing::info!("shutdown complete");
     Ok(())
 }

@@ -394,6 +394,10 @@ impl CacheStore {
         }
         let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<Bytes>>(4);
         let (fp, tp) = (final_path.clone(), tmp.clone());
+        // Set when the body fails: the writer then discards the temp file instead of renaming
+        // a truncated artifact into place.
+        let aborted = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let aborted_w = aborted.clone();
         let writer = tokio::task::spawn_blocking(move || -> std::io::Result<PutOutcome> {
             use std::io::Write;
             let mut file = std::fs::File::create(&tp)?;
@@ -403,6 +407,10 @@ impl CacheStore {
                 }
             }
             drop(file);
+            if aborted_w.load(std::sync::atomic::Ordering::Acquire) {
+                let _ = std::fs::remove_file(&tp);
+                return Err(std::io::Error::other("upload aborted"));
+            }
             if fp.exists() {
                 let _ = std::fs::remove_file(&tp);
                 return Ok(PutOutcome::AlreadyExists);
@@ -461,11 +469,15 @@ impl CacheStore {
                 }
             }
         }
+        if failure.is_some() {
+            aborted.store(true, std::sync::atomic::Ordering::Release);
+        }
         drop(tx);
         let outcome = writer.await.map_err(|e| io_err(std::io::Error::other(e)));
         if let Some(e) = failure {
+            // Only the temp file: `final_path` may be a valid artifact a concurrent PUT just
+            // renamed into place.
             let _ = tokio::fs::remove_file(&tmp).await;
-            let _ = tokio::fs::remove_file(&final_path).await;
             return Err(e);
         }
         outcome?.map_err(|e| PutError::Store(io_err(e)))
@@ -758,6 +770,35 @@ mod tests {
         assert_eq!(leftovers.len(), 1, "{leftovers:?}");
         assert!(!s.exists("short").await.unwrap());
         assert!(s.get("missing").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn filesystem_streamed_failure_leaves_nothing_behind() {
+        let dir = tempfile::tempdir().unwrap();
+        let url = Url::from_directory_path(dir.path()).unwrap();
+        let s = CacheStore::open(&Config::for_tests(url.as_str())).await.unwrap();
+        let ctx = RequestContext::new();
+        let chunk: &'static [u8] = Box::leak(vec![7u8; 256 << 10].into_boxed_slice());
+        // Above FS_GATHER_MAX, so the body streams to the writer thread; then the body fails.
+        let failing = stream::iter(vec![
+            Ok(Bytes::from_static(chunk)),
+            Ok(Bytes::from_static(chunk)),
+            Err(PutError::BadBody("client went away".into())),
+        ]);
+        let err = s.put("cut", Some(4 << 20), failing, &ctx).await.unwrap_err();
+        assert!(matches!(err, PutError::BadBody(_)));
+        // A body shorter than announced is the same story.
+        let short = stream::iter(vec![Ok(Bytes::from_static(chunk)), Ok(Bytes::from_static(chunk))]);
+        let err = s.put("short", Some(4 << 20), short, &ctx).await.unwrap_err();
+        assert!(matches!(err, PutError::BadBody(_)));
+        // No truncated artifact was ever renamed into place, no temp file lingers.
+        assert!(!s.exists("cut").await.unwrap());
+        assert!(!s.exists("short").await.unwrap());
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
     }
 
     #[tokio::test]
