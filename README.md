@@ -5,34 +5,17 @@
 <h1 align="center">nx-remote-cache</h1>
 
 <p align="center">
-  <b>A free, open-source, self-hosted remote cache for Nx that is small, fast and boring to run.</b><br>
-  <i>One 4 MB static binary. Azure Blob, S3, GCS or local disk behind it. A dashboard in front of it.</i><br>
-  Implements the official <a href="https://nx.dev/docs/kb/self-hosted-caching">Nx self-hosted cache API</a>, byte for byte, with a conformance test that walks the published OpenAPI spec.<br>
-  <sub>An independent community project, not affiliated with or endorsed by Nx or Narwhal Technologies. Nx and Nx Cloud are their trademarks.</sub>
+  <b>A free, self-hosted remote cache for Nx. Small, fast, yours.</b><br>
+  One 4 MB binary. Azure Blob, S3, GCS or a disk behind it. A live dashboard in front of it.<br>
+  <sub>Independent open-source project, MIT. Not affiliated with or endorsed by Nx or Narwhal Technologies; Nx and Nx Cloud are their trademarks.</sub>
 </p>
-
-<table align="center">
-  <tr>
-    <td align="center" width="25%"><h3>⚡</h3></td>
-    <td align="center" width="25%"><h3>☁️</h3></td>
-    <td align="center" width="25%"><h3>📊</h3></td>
-    <td align="center" width="25%"><h3>🔒</h3></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><b>Built for the hot path</b><br><sub>Streaming in both directions, create-only writes, an in-memory tier for hot artifacts, sub-millisecond misses</sub></td>
-    <td align="center" valign="top"><b>Any object store</b><br><sub>Azure Blob first (Workload Identity, SAS, key, Azurite), plus S3, GCS, local disk and memory, one URL to switch</sub></td>
-    <td align="center" valign="top"><b>Built-in dashboard</b><br><sub>Hit rate, throughput, latency percentiles, retention, live events linked to the CI run that produced them</sub></td>
-    <td align="center" valign="top"><b>Kubernetes-native</b><br><sub>Scratch image, non-root, health and readiness probes, Prometheus metrics, graceful drain, manifests included</sub></td>
-  </tr>
-</table>
 
 <p align="center">
   <a href="https://github.com/MisterPandaPooh/nx-remote-cache/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/MisterPandaPooh/nx-remote-cache/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/MisterPandaPooh/nx-remote-cache/pkgs/container/nx-remote-cache"><img alt="Docker image" src="https://img.shields.io/badge/ghcr.io-nx--remote--cache-2496ed?logo=docker&logoColor=white"></a>
+  <a href="https://github.com/MisterPandaPooh/nx-remote-cache/pkgs/container/nx-remote-cache"><img alt="ghcr.io" src="https://img.shields.io/badge/ghcr.io-nx--remote--cache-2496ed?logo=docker&logoColor=white"></a>
   <a href="https://hub.docker.com/r/misterpandapooh/nx-remote-cache"><img alt="Docker Hub" src="https://img.shields.io/badge/Docker%20Hub-nx--remote--cache-2496ed?logo=docker&logoColor=white"></a>
   <a href="https://github.com/MisterPandaPooh/nx-remote-cache/pkgs/container/charts%2Fnx-remote-cache"><img alt="Helm chart" src="https://img.shields.io/badge/helm-oci%3A%2F%2Fghcr.io-0f1689?logo=helm&logoColor=white"></a>
   <img alt="Image size" src="https://img.shields.io/badge/image-4%20MB-2ea44f">
-  <img alt="Rust" src="https://img.shields.io/badge/rust-1.85%2B-f74c00?logo=rust&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-lightgrey">
 </p>
 
@@ -40,21 +23,49 @@
   <img src="images/dashboard.png" width="920" alt="nx-remote-cache dashboard">
 </p>
 
-## Why
+## Two goals
 
-Nx can push task outputs to any server that speaks two HTTP calls: `PUT /v1/cache/{hash}` and
-`GET /v1/cache/{hash}`. Nx Cloud does that and much more; the community servers do it in Deno or Go
-with a single backend. This one is written in Rust around three ideas:
+1. **Nx Cloud-class caching on storage you already own, for free.** Every `nx` run on every
+   machine and in CI shares one cache in your own bucket. No seats, no vendor, no data leaving
+   your cloud. It speaks the official [Nx self-hosted cache API](https://nx.dev/docs/kb/self-hosted-caching),
+   verified byte for byte against the published OpenAPI spec.
+2. **Nothing to operate.** One container, one store URL, one token. Retention, metrics, probes
+   and a dashboard are built in. Deploy with one `helm install`; it runs as a non-root `scratch`
+   image and restarts in milliseconds.
 
-1. **Never hold an artifact in memory.** Uploads stream into multipart writes, downloads stream out
-   of the store. A 2 GB `node_modules` snapshot costs the same RAM as a 2 KB lint result.
-2. **Reads are the product.** Misses answer in well under a millisecond, hits for small artifacts
-   come straight from an LRU in memory, and every answer the Nx client could misread (409, 403, 413)
-   is delivered reliably, because the request body is drained before responding.
-3. **Nothing to operate.** One binary, one URL for the store, one token. Retention is a lifecycle
-   policy on the bucket or a built-in sweeper. The dashboard is embedded in the same binary.
+## What makes it strong
 
-## Quick start
+- **Fastest in its class.** Rust on hyper and tokio, streaming in both directions, hot artifacts
+  served from RAM. Measured against every other open-source Nx cache server on the same machine:
+  [benchmark](#benchmark).
+- **Any store, one URL.** `az://` (Workload Identity, managed identity, SAS, key, Azurite),
+  `s3://` (IRSA, keys, MinIO, R2), `gs://`, `file://`, `memory:///`. Credentials come from the
+  provider's standard variables.
+- **Safe by default.** Read-write and read-only tokens compared in constant time, so pull
+  requests can read but never poison the cache ([CREEP, CVE-2025-36852](SECURITY.md)). Strict CSP,
+  signed images with SBOM and provenance, no shell in the container.
+- **A dashboard that explains your cache.** Hit rate, throughput, latency percentiles, retention,
+  and a live feed where every artifact links to the CI run that produced it and the one that reused it.
+- **Kubernetes-native.** Helm chart on the Bitnami `common` library with typed values per store,
+  Prometheus metrics, liveness and readiness probes, graceful drain, PDB, HPA.
+- **Bounded by design.** Memory for uploads is a formula you set, never "whatever the body is".
+  A 2 GB artifact costs the same RAM as a 2 KB one.
+- **A little extra.** `/v1/kv`, a small key-value store for CI glue (flags, last green commit),
+  and a composite action that caches any path like `actions/cache`, against your own server.
+
+## Benchmark
+
+<p align="center"><img src="images/benchmark.svg" width="920" alt="Benchmark: requests per second per server, per artifact size"></p>
+
+Every open-source Nx cache server with a published image, each on every store it supports, in
+containers on one machine, 32 connections, same S3 bucket or same RAM-backed disk. Method, full
+tables, and where each competitor wins and why: [`docs/performance.md`](docs/performance.md).
+
+## First run
+
+### Try it in thirty seconds
+
+No token, no cloud, artifacts on a tmpfs:
 
 ```bash
 docker run --rm -p 3000:3000 \
@@ -63,7 +74,7 @@ docker run --rm -p 3000:3000 \
   ghcr.io/misterpandapooh/nx-remote-cache:latest
 ```
 
-Point Nx (≥ 20.8) at it:
+Open <http://localhost:3000> for the dashboard, then point Nx (≥ 20.8) at it:
 
 ```bash
 export NX_SELF_HOSTED_REMOTE_CACHE_SERVER=http://localhost:3000
@@ -71,11 +82,42 @@ export NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=anything   # Nx insists on a val
 nx run-many -t build
 ```
 
-Open <http://localhost:3000>: that is the dashboard, no login. For anything reachable from
-outside your machine, drop `NX_CACHE_ENABLE_LOGIN=false` and set `NX_CACHE_TOKEN` (and a
-read-only `NX_CACHE_READ_TOKEN` for pull requests); the same image also lives on Docker Hub.
+Anything reachable by other people needs tokens: drop `NX_CACHE_ENABLE_LOGIN=false`, set
+`NX_CACHE_TOKEN` for trusted branches and `NX_CACHE_READ_TOKEN` for pull requests.
 
-Production is one Helm install (chart built on Bitnami `common`, tokens generated for you):
+### S3, MinIO, Cloudflare R2
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e NX_CACHE_STORE_URL=s3://my-bucket/nx-cache \
+  -e AWS_REGION=eu-west-1 -e AWS_ACCESS_KEY_ID=… -e AWS_SECRET_ACCESS_KEY=… \
+  -e NX_CACHE_TOKEN="$(openssl rand -hex 32)" -e NX_CACHE_READ_TOKEN="$(openssl rand -hex 32)" \
+  ghcr.io/misterpandapooh/nx-remote-cache:latest
+```
+
+Add `-e AWS_ENDPOINT=https://…` for MinIO or R2 (`AWS_ALLOW_HTTP=true` for plain http).
+On Kubernetes, with an IAM role (IRSA) and generated tokens:
+
+```bash
+helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cache \
+  --namespace nx-remote-cache --create-namespace \
+  --set store.type=s3 --set store.s3.bucket=my-bucket --set store.s3.region=eu-west-1 \
+  --set store.s3.irsa.roleArn=arn:aws:iam::123456789012:role/nx-remote-cache \
+  --set ingress.enabled=true --set ingress.hostname=nx-cache.example.com --set ingress.tls=true
+```
+
+### Azure Blob
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e NX_CACHE_STORE_URL=az://nx-cache/ \
+  -e AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount -e AZURE_STORAGE_ACCOUNT_KEY=… \
+  -e NX_CACHE_TOKEN="$(openssl rand -hex 32)" -e NX_CACHE_READ_TOKEN="$(openssl rand -hex 32)" \
+  ghcr.io/misterpandapooh/nx-remote-cache:latest
+```
+
+On AKS, with Workload Identity (no key leaves Azure; grant the identity *Storage Blob Data
+Contributor* on the container):
 
 ```bash
 helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cache \
@@ -85,54 +127,15 @@ helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cach
   --set ingress.enabled=true --set ingress.hostname=nx-cache.example.com --set ingress.tls=true
 ```
 
-Two replicas, probes, non-root, read-only root filesystem, an Ingress sized for big artifacts,
-Azure Blob with Workload Identity (no key leaves Azure), or S3, GCS and plain volumes behind the
-same URL. Images on ghcr.io and Docker Hub, signed. Walkthrough: [`docs/deploy.md`](docs/deploy.md).
-
-## Performance
-
-<p align="center"><img src="images/benchmark.svg" width="920" alt="Benchmark: requests per second per server, per artifact size"></p>
-
-Every server in a container on the same machine, same S3 bucket or same RAM-backed disk, 32
-connections. On object storage, the arena that matters in production, the Rust server uploads
-1.6 to 2.5× faster than the Deno server, answers misses 25 to 50 % sooner and serves hot
-artifacts from its memory tier 25 to 70× faster. Against the Go server on local disk it is a tie
-or ahead everywhere except large hits from disk, where `sendfile(2)` wins. Why, the full tables
-and how to rerun: [`docs/performance.md`](docs/performance.md), [`bench/RESULTS.md`](bench/RESULTS.md).
-
-## What you get
-
-- **Any object store.** Azure Blob (Workload Identity, managed identity, SAS, key, Azurite),
-  S3 / MinIO / R2, Google Cloud Storage, local disk, memory. One URL to switch. [`docs/deploy.md`](docs/deploy.md)
-- **A dashboard in the same binary.** Hit rate, 24 h activity, latency p50/p90/p99, retention,
-  a live feed where every artifact links to the CI run that produced it and the one that reused
-  it. Guarded by a token or your SSO proxy. [`docs/dashboard.md`](docs/dashboard.md)
-- **CI integration.** A complete GitHub Actions workflow (read-only token on pull requests, so a
-  fork cannot poison the cache), artifacts tagged with their run, and an `actions/cache`-like
-  composite action for anything outside Nx. [`docs/ci.md`](docs/ci.md)
-- **Retention.** Lifecycle policies for Azure, S3 and GCS, plus a built-in sweeper for size
-  budgets, local disk and sub-day TTLs. [`docs/deploy.md#retention`](docs/deploy.md#retention)
-- **Observability.** Prometheus metrics, structured JSON logs with levels, liveness and
-  readiness probes. [`docs/dashboard.md`](docs/dashboard.md)
-- **Key-value store.** `/v1/kv`: a small LRU store for CI glue (flags, last green commit, a
-  JSON blob between jobs), with TTLs and content types. [`docs/kv.md`](docs/kv.md)
-- **Spec conformance.** A test walks the OpenAPI document published by Nx against the live
-  router and fails on any difference. [`docs/architecture.md`](docs/architecture.md)
-
-<p align="center"><img src="images/connect.png" width="560" alt="Dashboard token prompt"></p>
-
-## Security
-
-Bearer tokens compared in constant time, read-write and read-only; hashes validated; uploads
-size- and concurrency-capped; credentials never logged; a strict CSP on the dashboard; a
-`scratch` image running as non-root with a read-only filesystem. Threat model, hardening
-details and how to report a vulnerability: [`SECURITY.md`](SECURITY.md).
+Google Cloud Storage, a persistent volume, SSO in front of the dashboard, GitHub Actions wiring:
+[`docs/deploy.md`](docs/deploy.md), [`docs/ci.md`](docs/ci.md). The install prints how to read
+the generated tokens back.
 
 ## Documentation
 
 | | |
 |---|---|
-| [`docs/deploy.md`](docs/deploy.md) | Kubernetes walkthrough, every store and its credentials, retention |
+| [`docs/deploy.md`](docs/deploy.md) | Helm, Kubernetes manifests, every store and its credentials, retention |
 | [`docs/configuration.md`](docs/configuration.md) | Every environment variable, with units and sizing notes |
 | [`docs/ci.md`](docs/ci.md) | GitHub Actions workflow, linking artifacts to CI runs, the composite cache action |
 | [`docs/dashboard.md`](docs/dashboard.md) | Dashboard, JSON API, Prometheus, logs |
@@ -140,13 +143,11 @@ details and how to report a vulnerability: [`SECURITY.md`](SECURITY.md).
 | [`docs/kv.md`](docs/kv.md) | Key-value store guide |
 | [`docs/performance.md`](docs/performance.md) | Benchmark method, tables, what makes the difference |
 | [`docs/architecture.md`](docs/architecture.md) | How it is built, spec conformance, developing and testing |
-| [`docs/release.md`](docs/release.md) | Versioning, what a release publishes, signatures, how to cut one |
+| [`docs/release.md`](docs/release.md) | Versioning, what a release publishes, signatures |
 | [`charts/nx-remote-cache/`](charts/nx-remote-cache/README.md) | Helm chart values |
-| [`docs/nx-internals.md`](docs/nx-internals.md) | How the Nx client talks to a remote cache, read from its sources |
-| [`deploy/sso/`](deploy/sso/README.md) | Dashboard behind Keycloak, SAML or Kong |
+| [`SECURITY.md`](SECURITY.md) | Threat model, cache poisoning, hardening, reporting |
 | [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md) | |
 
 ## License
 
-MIT. An independent community project, not affiliated with or endorsed by Nx or Narwhal
-Technologies; Nx and Nx Cloud are their trademarks.
+MIT.
