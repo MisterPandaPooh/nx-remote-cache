@@ -29,6 +29,8 @@
 <p align="center">
   <a href="https://github.com/MisterPandaPooh/nx-remote-cache/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/MisterPandaPooh/nx-remote-cache/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/MisterPandaPooh/nx-remote-cache/pkgs/container/nx-remote-cache"><img alt="Docker image" src="https://img.shields.io/badge/ghcr.io-nx--remote--cache-2496ed?logo=docker&logoColor=white"></a>
+  <a href="https://hub.docker.com/r/misterpandapooh/nx-remote-cache"><img alt="Docker Hub" src="https://img.shields.io/badge/Docker%20Hub-nx--remote--cache-2496ed?logo=docker&logoColor=white"></a>
+  <a href="https://github.com/MisterPandaPooh/nx-remote-cache/pkgs/container/charts%2Fnx-remote-cache"><img alt="Helm chart" src="https://img.shields.io/badge/helm-oci%3A%2F%2Fghcr.io-0f1689?logo=helm&logoColor=white"></a>
   <img alt="Image size" src="https://img.shields.io/badge/image-4%20MB-2ea44f">
   <img alt="Rust" src="https://img.shields.io/badge/rust-1.85%2B-f74c00?logo=rust&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-lightgrey">
@@ -71,9 +73,18 @@ nx run-many -t build
 
 Open <http://localhost:3000> and paste the token: that is the dashboard.
 
-Production is one `kubectl apply -k deploy/k8s`: two replicas, probes, non-root, read-only root
-filesystem, an Ingress sized for big artifacts, Azure Blob with Workload Identity (no key leaves
-Azure), or S3, GCS and plain volumes behind the same URL. Walkthrough: [`docs/deploy.md`](docs/deploy.md).
+Production is one Helm install (chart built on Bitnami `common`, tokens generated for you):
+
+```bash
+helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cache \
+  --namespace nx-remote-cache --create-namespace \
+  --set storeUrl=az://nx-cache/ --set env.AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount \
+  --set ingress.enabled=true --set ingress.hostname=nx-cache.example.com --set ingress.tls=true
+```
+
+Two replicas, probes, non-root, read-only root filesystem, an Ingress sized for big artifacts,
+Azure Blob with Workload Identity (no key leaves Azure), or S3, GCS and plain volumes behind the
+same URL. Images on ghcr.io and Docker Hub, signed. Walkthrough: [`docs/deploy.md`](docs/deploy.md).
 
 ## Performance
 
@@ -126,6 +137,8 @@ details and how to report a vulnerability: [`SECURITY.md`](SECURITY.md).
 | [`docs/kv.md`](docs/kv.md) | Key-value store guide |
 | [`docs/performance.md`](docs/performance.md) | Benchmark method, tables, what makes the difference |
 | [`docs/architecture.md`](docs/architecture.md) | How it is built, spec conformance, developing and testing |
+| [`docs/release.md`](docs/release.md) | Versioning, what a release publishes, signatures, how to cut one |
+| [`charts/nx-remote-cache/`](charts/nx-remote-cache/README.md) | Helm chart values |
 | [`docs/nx-internals.md`](docs/nx-internals.md) | How the Nx client talks to a remote cache, read from its sources |
 | [`deploy/sso/`](deploy/sso/README.md) | Dashboard behind Keycloak, SAML or Kong |
 | [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md) | |

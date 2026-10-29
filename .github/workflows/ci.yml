@@ -54,6 +54,29 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+  helm:
+    name: Helm chart (lint, template)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - run: helm dependency update charts/nx-remote-cache
+      - run: helm lint charts/nx-remote-cache --strict --set storeUrl=memory:///
+      - name: Render the common configurations
+        run: |
+          set -euo pipefail
+          helm template t charts/nx-remote-cache --set storeUrl=memory:/// > /dev/null
+          helm template t charts/nx-remote-cache --set storeUrl=az://nx-cache/ --set auth.existingSecret=tokens \
+            --set ingress.enabled=true --set ingress.hostname=nx.example.com --set ingress.tls=true \
+            --set autoscaling.enabled=true --set metrics.serviceMonitor.enabled=true > /dev/null
+          helm template t charts/nx-remote-cache --set storeUrl=file:///data --set persistence.enabled=true \
+            --set auth.enabled=false --set resources.limits.memory=1Gi > /dev/null
+          # must refuse a file:// store without a volume
+          if helm template t charts/nx-remote-cache --set storeUrl=file:///data > /dev/null 2>&1; then
+            echo "expected validation failure" >&2; exit 1
+          fi
+      - run: python3 scripts/release.py check "$(python3 scripts/release.py current)"
+
   image:
     name: Docker image
     needs: [rust, ui]
@@ -79,7 +102,7 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .

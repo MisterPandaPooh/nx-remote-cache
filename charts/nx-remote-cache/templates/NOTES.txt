@@ -1,0 +1,37 @@
+CHART NAME: {{ .Chart.Name }}
+CHART VERSION: {{ .Chart.Version }}
+APP VERSION: {{ .Chart.AppVersion }}
+
+nx-remote-cache is rolling out as {{ include "common.names.fullname" . }} in namespace {{ include "common.names.namespace" . }}.
+
+Store: {{ .Values.storeUrl }}
+
+{{- if .Values.ingress.enabled }}
+
+URL: http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.hostname }}{{ .Values.ingress.path }}
+{{- else }}
+
+Try it with a port-forward:
+
+  kubectl -n {{ include "common.names.namespace" . }} port-forward svc/{{ include "common.names.fullname" . }} 3000:{{ .Values.service.ports.http }}
+{{- end }}
+
+{{- if .Values.auth.enabled }}
+
+Tokens (secret {{ include "nx-remote-cache.secretName" . }}):
+
+  export NX_CACHE_TOKEN=$(kubectl -n {{ include "common.names.namespace" . }} get secret {{ include "nx-remote-cache.secretName" . }} -o jsonpath="{.data.{{ include "nx-remote-cache.tokenKey" . }}}" | base64 -d)
+  export NX_CACHE_READ_TOKEN=$(kubectl -n {{ include "common.names.namespace" . }} get secret {{ include "nx-remote-cache.secretName" . }} -o jsonpath="{.data.{{ include "nx-remote-cache.readTokenKey" . }}}" | base64 -d)
+{{- end }}
+
+Point Nx at it:
+
+  export NX_SELF_HOSTED_REMOTE_CACHE_SERVER=<the URL above>
+  export NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=$NX_CACHE_TOKEN
+
+Open the URL in a browser and paste the token for the dashboard.
+Docs: https://github.com/MisterPandaPooh/nx-remote-cache#readme
+
+{{- include "common.warnings.rollingTag" .Values.image }}
+{{- include "common.warnings.resources" (dict "sections" (list "") "context" $) }}
+{{- include "common.warnings.modifiedImages" (dict "images" (list .Values.image) "context" $) }}

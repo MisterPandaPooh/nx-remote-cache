@@ -10,3 +10,5 @@
 # already existing elements were commented out
 
 #/target
+# pulled by `helm dependency update`
+/charts/*/charts/

@@ -1,0 +1,234 @@
+## Values for nx-remote-cache, in the Bitnami layout (the chart depends on bitnami/common).
+## Every server setting: https://github.com/MisterPandaPooh/nx-remote-cache/blob/main/docs/configuration.md
+
+## @section Global parameters
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  compatibility:
+    openshift:
+      # auto / force / disabled: drop user ids that OpenShift's restricted SCC rejects
+      adaptSecurityContext: auto
+
+## @section Common parameters
+kubeVersion: ""
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""
+commonLabels: {}
+commonAnnotations: {}
+clusterDomain: cluster.local
+## Extra objects to deploy, rendered as templates
+extraDeploy: []
+
+## @section Server parameters
+image:
+  registry: ghcr.io
+  repository: misterpandapooh/nx-remote-cache
+  ## Bumped by the release workflow. Docker Hub mirror: registry docker.io, same repository.
+  tag: "0.1.0"
+  digest: ""
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+## Where artifacts live. Required.
+## az://<container>/<prefix>, s3://<bucket>/<prefix>, gs://<bucket>/<prefix>,
+## file:///data (set persistence.enabled: true) or memory:/// (demos).
+storeUrl: ""
+
+## Bearer tokens for the cache API and dashboard.
+auth:
+  enabled: true
+  ## Read-write token, used on trusted branches. Generated and kept across upgrades when empty.
+  token: ""
+  ## Read-only token for pull requests (PUT answers 403). Generated when empty.
+  readToken: ""
+  ## Use a secret you manage instead (recommended); the two keys below name its entries.
+  existingSecret: ""
+  existingSecretTokenKey: NX_CACHE_TOKEN
+  existingSecretReadTokenKey: NX_CACHE_READ_TOKEN
+
+## Plain environment variables: store credentials, limits, retention, logging.
+env:
+  NX_CACHE_MAX_ARTIFACT_BYTES: 2GB
+  ## Upload memory is bounded by MAX_CONCURRENT_PUTS × 32 MB with the default chunk settings:
+  ## 16 × 32 MB = 512 MB worst case, plus the 256 MB memory tier. Size resources accordingly.
+  NX_CACHE_MAX_CONCURRENT_PUTS: "16"
+  NX_CACHE_LOG_LEVEL: info
+  NX_CACHE_LOG_FORMAT: json
+  # AZURE_STORAGE_ACCOUNT_NAME: mystorageaccount
+  # AWS_REGION: eu-west-1
+## Extra env entries (valueFrom, secretKeyRef ...), templated
+extraEnvVars: []
+## ConfigMap and Secret whose keys become environment variables (cloud credentials, for example)
+extraEnvVarsCM: ""
+extraEnvVarsSecret: ""
+
+replicaCount: 2
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+revisionHistoryLimit: 3
+
+## Set azure.workload.identity/use: "true" for AKS Workload Identity
+podLabels: {}
+podAnnotations: {}
+podAffinityPreset: ""
+podAntiAffinityPreset: soft
+nodeAffinityPreset:
+  type: ""
+  key: ""
+  values: []
+affinity: {}
+nodeSelector: {}
+tolerations: []
+topologySpreadConstraints: []
+priorityClassName: ""
+schedulerName: ""
+terminationGracePeriodSeconds: 60
+automountServiceAccountToken: false
+hostAliases: []
+
+podSecurityContext:
+  enabled: true
+  fsGroupChangePolicy: Always
+  sysctls: []
+  supplementalGroups: []
+  fsGroup: 65534
+containerSecurityContext:
+  enabled: true
+  seLinuxOptions: {}
+  runAsUser: 65534
+  runAsGroup: 65534
+  runAsNonRoot: true
+  privileged: false
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: RuntimeDefault
+
+## Bitnami resource preset (nano, micro, small, medium, large, xlarge, 2xlarge) or explicit resources.
+## 1 Gi of memory is a sensible limit with the env defaults above.
+resourcesPreset: "small"
+resources: {}
+#  requests: { cpu: 100m, memory: 64Mi }
+#  limits: { memory: 1Gi }
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 2
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 0
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 30
+  successThreshold: 1
+customLivenessProbe: {}
+customReadinessProbe: {}
+customStartupProbe: {}
+
+extraVolumes: []
+extraVolumeMounts: []
+initContainers: []
+sidecars: []
+
+## @section Persistence (local-disk store: storeUrl: file:///data)
+persistence:
+  enabled: false
+  existingClaim: ""
+  storageClass: ""
+  accessModes: ["ReadWriteOnce"]
+  size: 50Gi
+  annotations: {}
+  mountPath: /data
+
+## @section Traffic exposure
+service:
+  type: ClusterIP
+  ports:
+    http: 80
+  nodePorts:
+    http: ""
+  clusterIP: ""
+  loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+  externalTrafficPolicy: Cluster
+  sessionAffinity: None
+  sessionAffinityConfig: {}
+  extraPorts: []
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "3000"
+
+ingress:
+  enabled: false
+  ingressClassName: ""
+  pathType: Prefix
+  hostname: nx-cache.local
+  path: /
+  ## Big artifacts need a large body limit, no request buffering and long timeouts (nginx shown).
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "2g"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  ## TLS with a secret named <hostname>-tls (cert-manager annotations honoured)
+  tls: false
+  selfSigned: false
+  extraHosts: []
+  extraPaths: []
+  extraTls: []
+  secrets: []
+  extraRules: []
+
+## @section Other parameters
+pdb:
+  create: true
+  minAvailable: 1
+  maxUnavailable: ""
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPU: 70
+  targetMemory: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  ## AKS Workload Identity: azure.workload.identity/client-id: "<client id>"
+  ## EKS IRSA: eks.amazonaws.com/role-arn: "<role arn>"
+  annotations: {}
+  automountServiceAccountToken: false
+
+metrics:
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: ""
+    labels: {}
+    selector: {}
+    relabelings: []
+    metricRelabelings: []
+    honorLabels: false
+    jobLabel: ""

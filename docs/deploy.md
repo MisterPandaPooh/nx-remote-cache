@@ -2,6 +2,25 @@
 
 The server is one container with one required setting, `NX_CACHE_STORE_URL`. This page walks through a Kubernetes deployment on Azure Blob, then lists every store and how retention works. Every variable is in [`configuration.md`](configuration.md).
 
+## Helm
+
+The chart in [`charts/nx-remote-cache/`](../charts/nx-remote-cache/README.md) is built on the Bitnami
+`common` library and published as an OCI artifact on every release, one chart version per server
+version. Tokens are generated on first install and kept across upgrades (or bring your own secret
+with `auth.existingSecret`).
+
+```bash
+helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cache --version 0.1.0 \
+  --namespace nx-remote-cache --create-namespace \
+  --set storeUrl=az://nx-cache/ --set env.AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount \
+  --set 'podLabels.azure\.workload\.identity/use=true' \
+  --set 'serviceAccount.annotations.azure\.workload\.identity/client-id=<client id>' \
+  --set ingress.enabled=true --set ingress.hostname=nx-cache.example.com --set ingress.tls=true
+```
+
+Images come from `ghcr.io/misterpandapooh/nx-remote-cache` by default; `--set image.registry=docker.io`
+switches to the Docker Hub mirror. The plain manifests below do the same without Helm.
+
 ## Deploy on Kubernetes with Azure Blob
 
 1. Create a storage account and a container (`az storage container create -n nx-cache ...`).
