@@ -93,8 +93,11 @@ server:
   uploads:
     ## Largest accepted artifact (413 above)
     maxArtifactSize: 2GB
-    ## Up to this size an upload is one atomic create; above, a streamed multipart upload
-    inlineThreshold: 8MB
+    ## Up to this size an upload is buffered and written with one atomic create
+    inlineThreshold: 1MB
+    ## Above the inline threshold and up to this size (S3, GCS, Azure): one streaming PUT through a
+    ## presigned URL, nothing buffered. Above it, multipart.
+    streamThreshold: 64MB
     ## Multipart part size (at least 5MB) and parts in flight per upload
     multipartChunkSize: 8MB
     multipartConcurrency: 4

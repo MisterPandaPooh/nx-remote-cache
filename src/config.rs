@@ -19,6 +19,9 @@ pub struct Config {
     pub max_artifact_bytes: u64,
     /// Bodies up to this size are buffered and written with a single atomic create.
     pub inline_put_threshold: u64,
+    /// Bodies of known length up to this size go to S3, GCS or Azure as one streaming `PUT`
+    /// through a presigned URL; larger ones use multipart.
+    pub stream_put_threshold: u64,
     pub multipart_chunk_bytes: usize,
     pub multipart_concurrency: usize,
     pub store_timeout: Duration,
@@ -93,7 +96,8 @@ impl Config {
         }
 
         let max_artifact_bytes = env_size("NX_CACHE_MAX_ARTIFACT_BYTES", 4 << 30)?;
-        let inline_put_threshold = env_size("NX_CACHE_INLINE_PUT_THRESHOLD", 8 << 20)?;
+        let inline_put_threshold = env_size("NX_CACHE_INLINE_PUT_THRESHOLD", 1 << 20)?;
+        let stream_put_threshold = env_size("NX_CACHE_STREAM_PUT_THRESHOLD", 64 << 20)?;
         let multipart_chunk_bytes = env_size("NX_CACHE_MULTIPART_CHUNK_BYTES", 8 << 20)? as usize;
         if multipart_chunk_bytes < 5 << 20 {
             bail!("NX_CACHE_MULTIPART_CHUNK_BYTES must be at least 5MB (cloud stores reject smaller parts)");
@@ -109,6 +113,7 @@ impl Config {
             login_enabled,
             max_artifact_bytes,
             inline_put_threshold,
+            stream_put_threshold,
             multipart_chunk_bytes,
             multipart_concurrency: multipart_concurrency.max(1),
             store_timeout: Duration::from_secs(env_parse("NX_CACHE_STORE_TIMEOUT_SECS", 300)?),
@@ -169,6 +174,7 @@ impl Config {
             login_enabled: true,
             max_artifact_bytes: 64 << 20,
             inline_put_threshold: 1 << 20,
+            stream_put_threshold: 64 << 20,
             multipart_chunk_bytes: 5 << 20,
             multipart_concurrency: 2,
             store_timeout: Duration::from_secs(30),

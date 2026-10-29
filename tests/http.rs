@@ -1050,3 +1050,106 @@ async fn kv_redis_backend_is_shared_between_two_servers() {
         404
     );
 }
+
+#[tokio::test]
+async fn streamed_upload_to_s3_keeps_origin_and_create_only() {
+    // Needs an S3-compatible store: NX_CACHE_TEST_S3_URL=s3://bucket/ plus the AWS_* variables
+    // (endpoint, keys, region, AWS_ALLOW_HTTP). Skipped otherwise.
+    let Ok(url) = std::env::var("NX_CACHE_TEST_S3_URL") else {
+        eprintln!("NX_CACHE_TEST_S3_URL not set, skipping");
+        return;
+    };
+    let mut cfg = Config::for_tests(&format!(
+        "{}t-{}/",
+        url.trim_end_matches('/').to_owned() + "/",
+        std::process::id()
+    ));
+    cfg.inline_put_threshold = 64 << 10; // 64 KiB buffered, above that a presigned streaming PUT
+    cfg.stream_put_threshold = 64 << 20;
+    cfg.memory_cache_bytes = 0;
+    let s = start(cfg).await;
+    let ctx = "rw-token;run=4242;repo=org/app";
+    let body: Vec<u8> = (0..(3 << 20) + 777).map(|i| (i % 251) as u8).collect();
+    let put = s
+        .client
+        .put(s.url("/v1/cache/9100000000000000000001"))
+        .bearer_auth(ctx)
+        .header("content-type", "application/octet-stream")
+        .body(body.clone())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(put.status(), 200, "{}", put.text().await.unwrap_or_default());
+    let got = s
+        .client
+        .get(s.url("/v1/cache/9100000000000000000001"))
+        .bearer_auth("ro-token")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(got.status(), 200);
+    assert_eq!(got.headers().get("x-cache-tier").unwrap(), "store");
+    assert_eq!(got.bytes().await.unwrap().as_ref(), body.as_slice());
+    // The upload context travelled as signed metadata headers: the hit knows its origin run.
+    let events: serde_json::Value = serde_json::from_slice(
+        &s.client
+            .get(s.url("/api/v1/events?limit=5"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let hit = events["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["kind"] == "hit")
+        .expect("a hit event");
+    assert_eq!(hit["origin"]["run"], "4242");
+    // Create-only: a second upload of the same hash is a 409 (S3 honours If-None-Match: *; a mock
+    // that ignores it answers 200, which the Nx client treats the same way).
+    let again = s
+        .client
+        .put(s.url("/v1/cache/9100000000000000000001"))
+        .bearer_auth(ctx)
+        .header("content-type", "application/octet-stream")
+        .body(body.clone())
+        .send()
+        .await
+        .unwrap();
+    assert!(
+        matches!(again.status().as_u16(), 200 | 409),
+        "second upload: {}",
+        again.status()
+    );
+    // A body shorter than announced is refused, nothing half-written is served.
+    let short = s
+        .client
+        .put(s.url("/v1/cache/9100000000000000000002"))
+        .bearer_auth(ctx)
+        .header("content-type", "application/octet-stream")
+        .header("content-length", "2000000")
+        .body(reqwest::Body::wrap_stream(futures_util::stream::iter(vec![Ok::<
+            _,
+            std::io::Error,
+        >(
+            bytes::Bytes::from(vec![1u8; 1000]),
+        )])))
+        .send()
+        .await;
+    assert!(short.is_err() || short.unwrap().status().is_client_error());
+    assert_eq!(
+        s.client
+            .get(s.url("/v1/cache/9100000000000000000002"))
+            .bearer_auth("ro-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+}

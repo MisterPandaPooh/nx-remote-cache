@@ -216,6 +216,8 @@ memory:///
   value: {{ $v.uploads.maxArtifactSize | quote }}
 - name: NX_CACHE_INLINE_PUT_THRESHOLD
   value: {{ $v.uploads.inlineThreshold | quote }}
+- name: NX_CACHE_STREAM_PUT_THRESHOLD
+  value: {{ $v.uploads.streamThreshold | quote }}
 - name: NX_CACHE_MULTIPART_CHUNK_BYTES
   value: {{ $v.uploads.multipartChunkSize | quote }}
 - name: NX_CACHE_MULTIPART_CONCURRENCY

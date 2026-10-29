@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Uploads between 1 MB and 64 MB on S3, GCS and Azure are streamed straight to the store as one
+  `PUT` through a presigned URL (`NX_CACHE_STREAM_PUT_THRESHOLD`): nothing buffered, the store
+  transfer overlaps the client upload. `NX_CACHE_INLINE_PUT_THRESHOLD` defaults to 1 MB.
+
 ## 0.1.0 (2026-10-29)
 
 First release.

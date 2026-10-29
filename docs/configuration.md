@@ -61,14 +61,15 @@ pairs); it is stored as object metadata and shown in the dashboard, never used f
 | Variable | Default | Description |
 |---|---|---|
 | `NX_CACHE_MAX_ARTIFACT_BYTES` | `4GB` | Largest accepted upload; above it the server answers 413 (and reads up to 64 MiB of the body so the client sees the status). |
-| `NX_CACHE_INLINE_PUT_THRESHOLD` | `8MB` | Uploads up to this size are buffered and written with one create-only call. |
+| `NX_CACHE_INLINE_PUT_THRESHOLD` | `1MB` | Uploads up to this size are buffered and written with one create-only call (also what the memory tier keeps on upload). |
+| `NX_CACHE_STREAM_PUT_THRESHOLD` | `64MB` | On S3, GCS and Azure, uploads above the inline threshold and up to this size are streamed straight to the store as one `PUT` through a presigned URL, nothing buffered, the context as metadata headers. Above it, multipart. |
 | `NX_CACHE_MULTIPART_CHUNK_BYTES` | `8MB` | Part size for larger uploads (minimum `5MB`, a cloud-store rule). |
 | `NX_CACHE_MULTIPART_CONCURRENCY` | `4` | Parts of one upload sent in parallel. |
 | `NX_CACHE_MAX_CONCURRENT_PUTS` | `64` | Uploads in flight across the process; further ones wait. |
 
 Memory for uploads is bounded by
 `MAX_CONCURRENT_PUTS × max(INLINE_PUT_THRESHOLD, MULTIPART_CHUNK_BYTES × MULTIPART_CONCURRENCY)`:
-with the defaults, 64 × 32 MB = 2 GB worst case. Lower `NX_CACHE_MAX_CONCURRENT_PUTS` (16 in the
+with the defaults, 64 × 32 MB = 2 GB worst case (streamed uploads hold a few hundred KB each). Lower `NX_CACHE_MAX_CONCURRENT_PUTS` (16 in the
 Kubernetes example) or the chunk settings to fit your pod's memory limit.
 
 ## Memory tier

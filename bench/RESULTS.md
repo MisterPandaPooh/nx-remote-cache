@@ -1,146 +1,93 @@
 # Benchmark results
 
-Generated 2026-10-29T08:34:38Z on arm64 · Apple M4 Pro · Docker 29.2.0
+Generated 2026-10-29T15:29:50Z on arm64 · Apple M4 Pro · Docker 29.2.0
 
-Every server runs in its own container; `nx-cache-bench` runs in a container on the same Docker network with 32 concurrent connections, 1000 requests per phase (400 from 1 MB up, 4 with 2 connections at 1 GB), after an unmeasured warm-up of at most 64 uploads.
+Every server runs in its own container; `nx-cache-bench` runs in a container on the same Docker network with 32 concurrent connections, 1000 requests per phase (400 from 1 MB up, 4 with 2 connections from 256 MB up), after an unmeasured warm-up of at most 64 uploads.
 Phases: PUT (unique hashes), GET hit (same hashes), GET miss (unknown hashes). Latencies are end-to-end as the Nx CLI sees them.
 
 ## Artifact size: 4096 bytes
 
 | Server | Phase | req/s | MB/s | p50 ms | p90 ms | p99 ms | failures |
 |---|---|---:|---:|---:|---:|---:|---:|
-| nx-remote-cache (Rust) on S3, memory tier off | PUT | 1219 | 5.0 | 24.86 | 48.83 | 83.46 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 2520 | 10.3 | 11.22 | 22.72 | 54.97 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 3090 | 0.0 | 9.86 | 16.06 | 26.13 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | PUT | 1293 | 5.3 | 21.06 | 46.15 | 93.29 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 135822 | 556.3 | 0.15 | 0.26 | 0.53 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 3121 | 0.0 | 10.61 | 14.27 | 23.02 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | PUT | 737 | 3.0 | 37.60 | 75.75 | 95.10 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | GET hit | 1959 | 8.0 | 15.58 | 19.62 | 46.27 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | GET miss | 1715 | 0.0 | 15.00 | 21.05 | 107.44 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | PUT | 933 | 3.8 | 31.03 | 60.78 | 95.55 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET hit | 2631 | 10.8 | 12.54 | 21.65 | 32.08 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET miss | 3283 | 0.0 | 9.77 | 12.34 | 20.47 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | PUT | 748 | 3.1 | 36.48 | 77.29 | 109.43 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | GET hit | 1074 | 4.4 | 25.24 | 42.97 | 104.65 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | GET miss | 2254 | 0.0 | 13.37 | 18.28 | 22.10 | 0 |
-| nx-remote-cache (Rust) on local disk | PUT | 54137 | 221.7 | 0.48 | 0.95 | 1.49 | 0 |
-| nx-remote-cache (Rust) on local disk | GET hit | 133935 | 548.6 | 0.18 | 0.28 | 0.42 | 0 |
-| nx-remote-cache (Rust) on local disk | GET miss | 85695 | 0.0 | 0.28 | 0.51 | 1.03 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | PUT | 48817 | 200.0 | 0.31 | 1.81 | 2.98 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | GET hit | 71204 | 291.6 | 0.19 | 0.65 | 3.12 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | GET miss | 81822 | 0.0 | 0.22 | 0.44 | 1.41 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | PUT | 40568 | 166.2 | 0.73 | 1.07 | 1.42 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | GET hit | 34705 | 142.2 | 0.81 | 1.10 | 1.47 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | GET miss | 38607 | 0.0 | 0.80 | 0.95 | 1.13 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | PUT | 4502 | 18.4 | 6.09 | 8.88 | 20.82 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | GET hit | 4929 | 20.2 | 5.88 | 9.05 | 12.11 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | GET miss | 13544 | 0.0 | 1.96 | 4.10 | 5.66 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | PUT | 233 | 1.0 | 138.54 | 195.33 | 249.25 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | GET hit | 236 | 1.0 | 136.38 | 141.43 | 152.43 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | GET miss | 397 | 0.0 | 78.02 | 84.09 | 136.64 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | PUT | 1250 | 5.1 | 18.79 | 51.71 | 92.46 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 2145 | 8.8 | 11.96 | 25.38 | 72.48 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 2912 | 0.0 | 10.23 | 14.84 | 49.34 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | PUT | 1289 | 5.3 | 20.87 | 48.57 | 84.27 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 158293 | 648.4 | 0.14 | 0.21 | 0.34 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 3118 | 0.0 | 11.20 | 14.83 | 24.26 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | PUT | 780 | 3.2 | 36.15 | 65.73 | 90.93 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | GET hit | 1922 | 7.9 | 16.22 | 20.32 | 38.63 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | GET miss | 2140 | 0.0 | 14.75 | 16.87 | 23.47 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | PUT | 968 | 4.0 | 30.40 | 57.04 | 92.21 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET hit | 2621 | 10.7 | 12.26 | 19.88 | 34.35 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET miss | 3360 | 0.0 | 9.49 | 11.84 | 19.27 | 0 |
+| rerodrigues/cacheiro (Node) on S3 | PUT | 841 | 3.4 | 33.19 | 68.04 | 100.21 | 0 |
+| rerodrigues/cacheiro (Node) on S3 | GET hit | 1538 | 6.3 | 21.07 | 28.36 | 44.42 | 0 |
+| rerodrigues/cacheiro (Node) on S3 | GET miss | 2600 | 0.0 | 10.91 | 13.12 | 50.55 | 0 |
+| nx-remote-cache (Rust) on local disk | PUT | 52222 | 213.9 | 0.43 | 1.10 | 2.14 | 0 |
+| nx-remote-cache (Rust) on local disk | GET hit | 96304 | 394.5 | 0.13 | 0.21 | 0.30 | 0 |
+| nx-remote-cache (Rust) on local disk | GET miss | 102892 | 0.0 | 0.23 | 0.43 | 0.79 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | PUT | 52102 | 213.4 | 0.25 | 1.51 | 2.88 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | GET hit | 75400 | 308.8 | 0.18 | 0.45 | 3.07 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | GET miss | 139231 | 0.0 | 0.12 | 0.23 | 0.53 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | PUT | 34475 | 141.2 | 0.77 | 1.15 | 1.59 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | GET hit | 36562 | 149.8 | 0.83 | 1.06 | 1.28 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | GET miss | 35831 | 0.0 | 0.85 | 1.03 | 1.19 | 0 |
+| rerodrigues/cacheiro (Node) on local disk | PUT | 4335 | 17.8 | 6.42 | 8.35 | 34.20 | 0 |
+| rerodrigues/cacheiro (Node) on local disk | GET hit | 5358 | 21.9 | 5.51 | 8.04 | 9.64 | 0 |
+| rerodrigues/cacheiro (Node) on local disk | GET miss | 16171 | 0.0 | 1.65 | 3.12 | 5.01 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | PUT | 283 | 1.2 | 110.03 | 169.81 | 176.62 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | GET hit | 253 | 1.0 | 127.39 | 131.88 | 134.16 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | GET miss | 430 | 0.0 | 72.69 | 76.20 | 128.07 | 0 |
 
 ## Artifact size: 262144 bytes
 
 | Server | Phase | req/s | MB/s | p50 ms | p90 ms | p99 ms | failures |
 |---|---|---:|---:|---:|---:|---:|---:|
-| nx-remote-cache (Rust) on S3, memory tier off | PUT | 1109 | 290.7 | 23.64 | 60.21 | 105.07 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 2016 | 528.4 | 10.81 | 33.02 | 63.12 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 3368 | 0.0 | 9.91 | 11.76 | 19.73 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | PUT | 1050 | 275.2 | 23.30 | 62.30 | 107.63 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 45456 | 11916.1 | 0.38 | 0.72 | 4.24 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 3070 | 0.0 | 11.33 | 14.80 | 24.76 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | PUT | 588 | 154.2 | 49.56 | 75.04 | 116.02 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | GET hit | 1462 | 383.3 | 20.58 | 28.75 | 58.03 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | GET miss | 1859 | 0.0 | 15.70 | 18.40 | 61.37 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | PUT | 872 | 228.6 | 34.91 | 65.01 | 100.24 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET hit | 2421 | 634.6 | 13.88 | 21.09 | 35.33 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET miss | 3382 | 0.0 | 9.49 | 12.06 | 20.85 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | PUT | 628 | 164.6 | 46.18 | 84.44 | 117.04 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | GET hit | 997 | 261.2 | 29.83 | 42.59 | 74.64 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | GET miss | 2508 | 0.0 | 12.29 | 14.90 | 20.02 | 0 |
-| nx-remote-cache (Rust) on local disk | PUT | 22868 | 5994.8 | 1.01 | 2.06 | 4.44 | 0 |
-| nx-remote-cache (Rust) on local disk | GET hit | 41571 | 10897.6 | 0.37 | 0.98 | 3.34 | 0 |
-| nx-remote-cache (Rust) on local disk | GET miss | 85274 | 0.0 | 0.28 | 0.54 | 0.96 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | PUT | 19738 | 5174.3 | 1.03 | 3.68 | 5.22 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | GET hit | 34669 | 9088.2 | 0.37 | 1.89 | 5.94 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | GET miss | 123973 | 0.0 | 0.14 | 0.25 | 1.48 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | PUT | 20800 | 5452.7 | 1.33 | 2.21 | 3.24 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | GET hit | 23206 | 6083.3 | 1.10 | 1.85 | 4.34 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | GET miss | 40674 | 0.0 | 0.76 | 0.90 | 1.08 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | PUT | 3225 | 845.5 | 9.42 | 12.59 | 15.81 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | GET hit | 4012 | 1051.6 | 7.62 | 10.40 | 11.79 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | GET miss | 22805 | 0.0 | 1.28 | 1.59 | 2.69 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | PUT | 119 | 31.3 | 255.74 | 322.93 | 340.71 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | GET hit | 141 | 37.1 | 226.15 | 235.51 | 247.94 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | GET miss | 238 | 0.0 | 131.10 | 134.16 | 234.89 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | PUT | 1151 | 301.6 | 22.60 | 58.95 | 100.95 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 2106 | 552.0 | 10.90 | 33.56 | 64.34 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 3364 | 0.0 | 9.84 | 13.11 | 21.57 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | PUT | 1136 | 297.8 | 24.27 | 59.11 | 94.21 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 38116 | 9992.0 | 0.47 | 1.47 | 2.85 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 3135 | 0.0 | 10.66 | 13.63 | 23.92 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | PUT | 657 | 172.1 | 43.96 | 72.47 | 98.39 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | GET hit | 1634 | 428.4 | 18.42 | 25.38 | 44.16 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | GET miss | 1909 | 0.0 | 15.25 | 19.16 | 66.73 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | PUT | 864 | 226.6 | 34.32 | 69.05 | 97.36 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET hit | 2483 | 650.9 | 13.21 | 21.52 | 34.00 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET miss | 3362 | 0.0 | 9.98 | 11.59 | 19.29 | 0 |
+| rerodrigues/cacheiro (Node) on S3 | PUT | 752 | 197.0 | 38.85 | 69.53 | 104.05 | 0 |
+| rerodrigues/cacheiro (Node) on S3 | GET hit | 1236 | 324.0 | 24.06 | 33.39 | 73.21 | 0 |
+| rerodrigues/cacheiro (Node) on S3 | GET miss | 2974 | 0.0 | 10.50 | 12.37 | 17.88 | 0 |
+| nx-remote-cache (Rust) on local disk | PUT | 26613 | 6976.3 | 0.85 | 2.12 | 4.24 | 0 |
+| nx-remote-cache (Rust) on local disk | GET hit | 38980 | 10218.4 | 0.39 | 1.34 | 3.85 | 0 |
+| nx-remote-cache (Rust) on local disk | GET miss | 100789 | 0.0 | 0.21 | 0.43 | 0.65 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | PUT | 19204 | 5034.2 | 0.86 | 4.08 | 7.05 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | GET hit | 60737 | 15921.9 | 0.28 | 0.79 | 1.93 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | GET miss | 122053 | 0.0 | 0.13 | 0.26 | 1.60 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | PUT | 25311 | 6635.0 | 1.04 | 1.79 | 2.66 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | GET hit | 28026 | 7346.7 | 1.00 | 1.49 | 2.07 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | GET miss | 43772 | 0.0 | 0.70 | 0.84 | 0.97 | 0 |
+| rerodrigues/cacheiro (Node) on local disk | PUT | 2992 | 784.2 | 10.41 | 12.90 | 16.19 | 0 |
+| rerodrigues/cacheiro (Node) on local disk | GET hit | 3650 | 956.8 | 8.49 | 12.25 | 14.06 | 0 |
+| rerodrigues/cacheiro (Node) on local disk | GET miss | 20715 | 0.0 | 1.45 | 1.65 | 3.11 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | PUT | 129 | 33.8 | 237.02 | 299.99 | 317.61 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | GET hit | 151 | 39.6 | 212.68 | 220.45 | 225.24 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | GET miss | 251 | 0.0 | 123.70 | 128.45 | 223.20 | 0 |
 
 ## Artifact size: 4194304 bytes
 
 | Server | Phase | req/s | MB/s | p50 ms | p90 ms | p99 ms | failures |
 |---|---|---:|---:|---:|---:|---:|---:|
-| nx-remote-cache (Rust) on S3, memory tier off | PUT | 311 | 1303.5 | 92.80 | 191.58 | 281.78 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 851 | 3569.6 | 27.33 | 83.51 | 103.63 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 4025 | 0.0 | 8.68 | 14.50 | 20.02 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | PUT | 383 | 1605.2 | 82.84 | 158.60 | 227.43 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 618 | 2592.8 | 38.00 | 112.89 | 179.13 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 2238 | 0.0 | 11.44 | 16.02 | 71.09 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | PUT | 166 | 694.9 | 164.32 | 244.37 | 502.63 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | GET hit | 463 | 1942.1 | 65.60 | 89.94 | 121.90 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | GET miss | 1712 | 0.0 | 17.64 | 22.21 | 40.64 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | PUT | 408 | 1712.5 | 68.55 | 135.94 | 204.54 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET hit | 834 | 3498.0 | 34.71 | 55.74 | 91.76 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET miss | 4374 | 0.0 | 7.60 | 11.82 | 21.22 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | PUT | 148 | 621.0 | 194.81 | 266.66 | 454.15 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | GET hit | 224 | 940.0 | 132.15 | 183.28 | 270.00 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | GET miss | 2472 | 0.0 | 12.08 | 15.92 | 17.98 | 0 |
-| nx-remote-cache (Rust) on local disk | PUT | 1439 | 6035.3 | 13.81 | 49.71 | 98.24 | 0 |
-| nx-remote-cache (Rust) on local disk | GET hit | 913 | 3829.5 | 12.52 | 108.41 | 218.68 | 0 |
-| nx-remote-cache (Rust) on local disk | GET miss | 79504 | 0.0 | 0.28 | 0.56 | 1.05 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | PUT | 1610 | 6751.8 | 12.02 | 50.51 | 84.92 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | GET hit | 3217 | 13493.3 | 6.17 | 23.13 | 39.97 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | GET miss | 109827 | 0.0 | 0.18 | 0.34 | 0.57 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | PUT | 942 | 3950.6 | 29.29 | 53.00 | 79.83 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | GET hit | 949 | 3980.0 | 15.27 | 42.65 | 166.56 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | GET miss | 35722 | 0.0 | 0.82 | 0.98 | 1.35 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | PUT | 262 | 1098.7 | 99.91 | 206.64 | 270.66 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | GET hit | 457 | 1917.9 | 62.38 | 93.82 | 114.98 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | GET miss | 14843 | 0.0 | 1.88 | 2.68 | 4.19 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | PUT | 78 | 325.9 | 410.43 | 430.98 | 461.21 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | GET hit | 111 | 464.5 | 289.71 | 308.37 | 319.84 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | GET miss | 203 | 0.0 | 150.23 | 157.25 | 269.15 | 0 |
-
-## Artifact size: 1073741824 bytes
-
-| Server | Phase | req/s | MB/s | p50 ms | p90 ms | p99 ms | failures |
-|---|---|---:|---:|---:|---:|---:|---:|
-| nx-remote-cache (Rust) on S3, memory tier off | PUT | 0 | 410.7 | 5400.23 | 5408.24 | 5408.24 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 3 | 3324.2 | 724.83 | 728.46 | 728.46 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 1377 | 0.0 | 1.79 | 1.81 | 1.81 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | PUT | 0 | 426.0 | 5097.08 | 5348.29 | 5348.29 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 3 | 3365.2 | 612.80 | 679.07 | 679.07 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 1650 | 0.0 | 1.46 | 1.46 | 1.46 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | PUT | 1 | 651.6 | 3245.13 | 3349.69 | 3349.69 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | GET hit | 3 | 3684.0 | 650.10 | 653.89 | 653.89 | 0 |
-| IKatsuba/nx-cache-server (Deno) on S3 | GET miss | 503 | 0.0 | 4.33 | 4.34 | 4.34 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | PUT | 0 | 493.7 | 3820.02 | 5237.29 | 5237.29 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET hit | 3 | 2888.2 | 859.97 | 890.59 | 890.59 | 0 |
-| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET miss | 694 | 0.0 | 3.18 | 3.30 | 3.30 | 0 |
-| rerodrigues/cacheiro (Node) on S3 | PUT | 0 | 0.0 | 0.00 | 0.00 | 0.00 | 4 |
-| rerodrigues/cacheiro (Node) on S3 | GET hit | 0 | 0.0 | 0.00 | 0.00 | 0.00 | 4 |
-| rerodrigues/cacheiro (Node) on S3 | GET miss | 596 | 0.0 | 3.32 | 3.51 | 3.51 | 0 |
-| nx-remote-cache (Rust) on local disk | PUT | 7 | 7768.7 | 275.66 | 297.90 | 297.90 | 0 |
-| nx-remote-cache (Rust) on local disk | GET hit | 9 | 9945.9 | 218.85 | 219.19 | 219.19 | 0 |
-| nx-remote-cache (Rust) on local disk | GET miss | 9051 | 0.0 | 0.19 | 0.22 | 0.22 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | PUT | 11 | 11409.9 | 188.83 | 190.31 | 190.31 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | GET hit | 27 | 28815.8 | 71.72 | 78.56 | 78.56 | 0 |
-| enxtur/nx-caching-server (Go) on local disk | GET miss | 12448 | 0.0 | 0.13 | 0.14 | 0.14 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | PUT | 7 | 7855.9 | 276.20 | 277.87 | 277.87 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | GET hit | 4 | 4168.8 | 512.54 | 518.50 | 518.50 | 0 |
-| ShadiBlitz/nx-cache-server (Rust) on local disk | GET miss | 8317 | 0.0 | 0.23 | 0.25 | 0.25 | 0 |
-| rerodrigues/cacheiro (Node) on local disk | PUT | 0 | 0.0 | 0.00 | 0.00 | 0.00 | 4 |
-| rerodrigues/cacheiro (Node) on local disk | GET hit | 0 | 0.0 | 0.00 | 0.00 | 0.00 | 4 |
-| rerodrigues/cacheiro (Node) on local disk | GET miss | 2678 | 0.0 | 0.68 | 1.00 | 1.00 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | PUT | 2 | 2454.0 | 890.44 | 890.96 | 890.96 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | GET hit | 2 | 1793.9 | 1210.55 | 1210.97 | 1210.97 | 0 |
-| jappyjan/nx-cache-server (Node) on local disk | GET miss | 1312 | 0.0 | 1.70 | 2.20 | 2.20 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | PUT | 229 | 960.8 | 102.16 | 318.05 | 422.95 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 925 | 3880.6 | 23.37 | 66.48 | 84.42 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 4314 | 0.0 | 7.60 | 14.79 | 23.02 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | PUT | 393 | 1649.1 | 77.82 | 147.05 | 273.84 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 764 | 3203.5 | 28.07 | 112.84 | 146.15 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 4279 | 0.0 | 8.10 | 12.57 | 21.59 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | PUT | 147 | 618.5 | 158.54 | 220.84 | 807.61 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | GET hit | 549 | 2304.0 | 55.08 | 75.19 | 105.69 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | GET miss | 1975 | 0.0 | 16.12 | 19.56 | 25.79 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | PUT | 391 | 1639.8 | 69.27 | 142.29 | 200.51 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET hit | 1059 | 4440.7 | 27.01 | 46.83 | 74.55 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET miss | 3095 | 0.0 | 7.17 | 15.87 | 57.80 | 0 |

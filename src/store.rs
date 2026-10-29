@@ -55,6 +55,7 @@ pub fn origin_from(attrs: &Attributes) -> RequestContext {
         })
         .collect()
 }
+use object_store::signer::{SignedUrlOptions, Signer};
 use url::Url;
 
 use crate::config::Config;
@@ -88,9 +89,14 @@ pub struct CacheStore {
     /// Set for `file://` stores: reads and writes go straight through tokio::fs (streamed,
     /// no buffering), object_store is kept for listing, deleting and probing.
     fs_root: Option<std::path::PathBuf>,
+    /// Object stores that can presign a request (S3, GCS, Azure): bodies of known length up to
+    /// `stream_threshold` are streamed straight to the store through a presigned `PUT`.
+    signer: Option<Arc<dyn Signer>>,
+    http: reqwest::Client,
     pub kind: &'static str,
     pub location: String,
     inline_threshold: u64,
+    stream_threshold: u64,
     chunk_bytes: usize,
     concurrency: usize,
 }
@@ -106,6 +112,8 @@ impl std::fmt::Debug for CacheStore {
 
 impl CacheStore {
     pub async fn open(cfg: &Config) -> Result<Self> {
+        // The presigned-upload client speaks TLS to real stores; rustls needs its provider first.
+        crate::install_crypto_provider();
         let url = &cfg.store_url;
         let (scheme, prefix) =
             ObjectStoreScheme::parse(url).map_err(|e| anyhow!("unsupported store URL `{url}`: {e}"))?;
@@ -121,6 +129,7 @@ impl CacheStore {
         };
 
         let mut fs_root = None;
+        let mut signer: Option<Arc<dyn Signer>> = None;
         let (inner, kind, prefix): (Arc<dyn ObjectStore>, &'static str, StorePath) = match scheme {
             ObjectStoreScheme::Local => {
                 let dir = url
@@ -141,7 +150,9 @@ impl CacheStore {
                     .with_retry(retry)
                     .build()
                     .context("building the Azure Blob client (check AZURE_STORAGE_ACCOUNT_NAME and credentials)")?;
-                (Arc::new(store), "azure", prefix)
+                let store = Arc::new(store);
+                signer = Some(store.clone());
+                (store, "azure", prefix)
             }
             ObjectStoreScheme::AmazonS3 => {
                 let store = AmazonS3Builder::from_env()
@@ -150,7 +161,9 @@ impl CacheStore {
                     .with_retry(retry)
                     .build()
                     .context("building the S3 client")?;
-                (Arc::new(store), "s3", prefix)
+                let store = Arc::new(store);
+                signer = Some(store.clone());
+                (store, "s3", prefix)
             }
             ObjectStoreScheme::GoogleCloudStorage => {
                 let store = GoogleCloudStorageBuilder::from_env()
@@ -159,18 +172,28 @@ impl CacheStore {
                     .with_retry(retry)
                     .build()
                     .context("building the GCS client")?;
-                (Arc::new(store), "gcs", prefix)
+                let store = Arc::new(store);
+                signer = Some(store.clone());
+                (store, "gcs", prefix)
             }
             other => bail!("store scheme {other:?} is not supported"),
         };
 
+        let http = reqwest::Client::builder()
+            .timeout(cfg.store_timeout)
+            .connect_timeout(cfg.store_connect_timeout)
+            .build()
+            .context("building the HTTP client for presigned uploads")?;
         Ok(Self {
             inner,
             prefix,
             fs_root,
+            signer,
+            http,
             kind,
             location: redact(url),
             inline_threshold: cfg.inline_put_threshold,
+            stream_threshold: cfg.stream_put_threshold,
             chunk_bytes: cfg.multipart_chunk_bytes,
             concurrency: cfg.multipart_concurrency,
         })
@@ -212,7 +235,7 @@ impl CacheStore {
         context: &RequestContext,
     ) -> Result<PutOutcome, PutError>
     where
-        S: Stream<Item = Result<Bytes, PutError>> + Unpin,
+        S: Stream<Item = Result<Bytes, PutError>> + Unpin + Send + 'static,
     {
         let key = self.key(hash);
         if let Some(root) = &self.fs_root {
@@ -237,6 +260,13 @@ impl CacheStore {
                 )));
             }
             return self.put_inline(&key, buf.freeze(), attributes).await;
+        }
+
+        // Known length, presignable store: stream the body straight through, nothing buffered.
+        if let (Some(len), Some(signer)) = (expected_len, self.signer.as_ref()) {
+            if len <= self.stream_threshold {
+                return self.put_presigned(signer.as_ref(), &key, len, body, context).await;
+            }
         }
 
         // Multipart: cheap existence check first so a duplicate is not uploaded to the store.
@@ -481,6 +511,113 @@ impl CacheStore {
             return Err(e);
         }
         outcome?.map_err(|e| PutError::Store(io_err(e)))
+    }
+
+    /// One streaming `PUT` to the store through a presigned URL: the body leaves as it arrives,
+    /// nothing is buffered. The upload context travels as provider metadata headers (signed on
+    /// S3 and GCS; Azure's SAS signs no header), and the write is create-only where the provider
+    /// supports it (`If-None-Match: *` on S3 and Azure, a generation match of 0 on GCS).
+    async fn put_presigned<S>(
+        &self,
+        signer: &dyn Signer,
+        key: &StorePath,
+        len: u64,
+        body: S,
+        context: &RequestContext,
+    ) -> Result<PutOutcome, PutError>
+    where
+        S: Stream<Item = Result<Bytes, PutError>> + Unpin + Send + 'static,
+    {
+        use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method};
+        use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+
+        let meta_prefix = match self.kind {
+            "s3" => "x-amz-meta-",
+            "gcs" => "x-goog-meta-",
+            _ => "x-ms-meta-",
+        };
+        let mut signed = HeaderMap::new();
+        let mut unsigned = HeaderMap::new();
+        for (k, v) in context.iter() {
+            let name = HeaderName::from_bytes(format!("{meta_prefix}{META_PREFIX}{k}").as_bytes());
+            if let (Ok(name), Ok(value)) = (name, HeaderValue::from_str(v)) {
+                if self.kind == "azure" {
+                    unsigned.insert(name, value);
+                } else {
+                    signed.insert(name, value);
+                }
+            }
+        }
+        match self.kind {
+            "s3" => {
+                unsigned.insert(header::IF_NONE_MATCH, HeaderValue::from_static("*"));
+            }
+            "azure" => {
+                unsigned.insert(
+                    HeaderName::from_static("x-ms-blob-type"),
+                    HeaderValue::from_static("BlockBlob"),
+                );
+                unsigned.insert(header::IF_NONE_MATCH, HeaderValue::from_static("*"));
+            }
+            _ => {
+                signed.insert(
+                    HeaderName::from_static("x-goog-if-generation-match"),
+                    HeaderValue::from_static("0"),
+                );
+            }
+        }
+        let mut options = SignedUrlOptions::default();
+        options.signed_headers = signed.clone();
+        let url = signer
+            .signed_url_opts(Method::PUT, key, Duration::from_secs(900), &options)
+            .await?;
+
+        let sent = Arc::new(AtomicU64::new(0));
+        let counter = sent.clone();
+        let stream = body.map(move |chunk| match chunk {
+            Ok(c) => {
+                counter.fetch_add(c.len() as u64, Relaxed);
+                Ok::<Bytes, std::io::Error>(c)
+            }
+            Err(e) => Err(std::io::Error::other(format!("{e:?}"))),
+        });
+        let mut req = self
+            .http
+            .put(url)
+            .header(header::CONTENT_LENGTH, len)
+            .body(reqwest::Body::wrap_stream(stream));
+        for (name, value) in signed.iter().chain(unsigned.iter()) {
+            req = req.header(name, value);
+        }
+        let generic = |source: Box<dyn std::error::Error + Send + Sync>| {
+            PutError::Store(StoreError::Generic {
+                store: "presigned put",
+                source,
+            })
+        };
+        let res = match req.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                let received = sent.load(Relaxed);
+                if received != len {
+                    return Err(PutError::BadBody(format!("announced {len} bytes, received {received}")));
+                }
+                return Err(generic(Box::new(e)));
+            }
+        };
+        let received = sent.load(Relaxed);
+        if received != len {
+            return Err(PutError::BadBody(format!("announced {len} bytes, received {received}")));
+        }
+        match res.status().as_u16() {
+            200..=299 => Ok(PutOutcome::Created),
+            409 | 412 => Ok(PutOutcome::AlreadyExists),
+            code => {
+                let text = res.text().await.unwrap_or_default();
+                let text: String = text.chars().take(300).collect();
+                Err(generic(format!("HTTP {code}: {text}").into()))
+            }
+        }
     }
 
     async fn put_inline(&self, key: &StorePath, data: Bytes, attributes: Attributes) -> Result<PutOutcome, PutError> {
