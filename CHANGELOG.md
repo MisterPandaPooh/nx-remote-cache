@@ -11,6 +11,7 @@ First release.
 - Dashboard (React) with live events, token login, retention and latency views.
 - Health, readiness, Prometheus metrics, JSON logs, graceful shutdown.
 - Docker image on `scratch` (~4 MB), Kubernetes manifests, GitHub Actions CI, comparative benchmark.
+- Benchmark against every open-source Nx cache server with a published image (seven servers, two arenas); honest notes on where the Go servers are ahead.
 - `NX_CACHE_ENABLE_LOGIN=false`: works out of the box, no token for the cache API and no login screen.
 - Helm chart on the Bitnami `common` library, published as OCI on ghcr.io; images on ghcr.io and Docker Hub,
   signed with cosign, with SBOM and provenance; release workflow (`docs/release.md`).

@@ -108,7 +108,8 @@ async fn main() -> Result<()> {
         args.url, args.requests, args.concurrency, args.size
     );
 
-    let hash = |i: usize| format!("bench-{run_id}-{i}");
+    // Digits only, like real Nx hashes: some servers reject anything else.
+    let hash = |i: usize| format!("1{run_id}{i:06}");
 
     // Warm-up: two rounds of uploads that are not measured, so connection setup and the
     // server's thread pools do not land in the PUT phase of the fastest targets.
@@ -118,10 +119,16 @@ async fn main() -> Result<()> {
     });
     run(&warm, &client, "warm-up", |c, i| {
         let body = payload.clone();
-        let url = format!("{}/v1/cache/warm-{}-{}", args.url, run_id, i);
+        let url = format!("{}/v1/cache/2{}{:06}", args.url, run_id, i);
         let size = args.size as u64;
         async move {
-            let res = c.put(url).header("content-length", size).body(body).send().await?;
+            let res = c
+                .put(url)
+                .header("content-type", "application/octet-stream")
+                .header("content-length", size)
+                .body(body)
+                .send()
+                .await?;
             Ok::<_, reqwest::Error>((res.status().as_u16(), size))
         }
     })
@@ -134,6 +141,7 @@ async fn main() -> Result<()> {
         async move {
             Ok::<_, reqwest::Error>((
                 c.put(url)
+                    .header("content-type", "application/octet-stream")
                     .header("content-length", size)
                     .body(body)
                     .send()
@@ -160,7 +168,7 @@ async fn main() -> Result<()> {
     hit.report();
 
     let mut miss = run(&args, &client, "GET miss", |c, i| {
-        let url = format!("{}/v1/cache/miss-{run_id}-{i}", args.url);
+        let url = format!("{}/v1/cache/3{run_id}{i:06}", args.url);
         async move { Ok::<_, reqwest::Error>((c.get(url).send().await?.status().as_u16(), 0)) }
     })
     .await;
@@ -205,7 +213,8 @@ where
         name,
         ..Default::default()
     };
-    let expected_ok = |s: u16| s == expected;
+    // Servers answer a stored upload with 200 or 202; both are a success for the Nx client.
+    let expected_ok = |s: u16| s == expected || (expected == 200 && name == "PUT" && s == 202);
     for t in tasks {
         if let Ok((lat, r)) = t.await {
             match r {

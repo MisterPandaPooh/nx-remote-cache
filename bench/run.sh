@@ -29,22 +29,36 @@ wait_ready() { # url
   done
   echo "server $1 never became ready" >&2; return 1
 }
+# (a target that never becomes ready is skipped and named in the report)
 
+# shadi-s3 (ShadiBlitz on S3) is defined in docker-compose.yml but not run: every upload fails with
+# an aws-sdk "dispatch failure" (streaming body without a length), on S3Mock through the path-style
+# rewrite and directly. It is benchmarked on local disk only.
 if [[ "$IN_DOCKER" == "1" ]]; then
   targets=(
     "rust-s3|nx-remote-cache (Rust) on S3, memory tier off|http://rust-s3:3000"
     "rust-s3-memtier|nx-remote-cache (Rust) on S3, memory tier on|http://rust-s3-memtier:3000"
-    "deno-s3|nx-cache-server (Deno) on S3|http://deno-s3:3000"
+    "deno-s3|IKatsuba/nx-cache-server (Deno) on S3|http://deno-s3:3000"
+    "tis-s3|the-inconvenience-store/nx-remote-cache (Go) on S3|http://tis-s3:3000"
+    "cacheiro-s3|rerodrigues/cacheiro (Node) on S3|http://cacheiro-s3:3000"
     "rust-fs|nx-remote-cache (Rust) on local disk|http://rust-fs:3000"
-    "go-fs|nx-caching-server (Go) on local disk|http://go-fs:8090"
+    "go-fs|enxtur/nx-caching-server (Go) on local disk|http://go-fs:8090"
+    "shadi-fs|ShadiBlitz/nx-cache-server (Rust) on local disk|http://shadi-fs:3000"
+    "cacheiro-fs|rerodrigues/cacheiro (Node) on local disk|http://cacheiro-fs:3000"
+    "node-fs|jappyjan/nx-cache-server (Node) on local disk|http://node-fs:3000"
   )
 else
   targets=(
     "rust-s3|nx-remote-cache (Rust) on S3, memory tier off|http://127.0.0.1:3101"
     "rust-s3-memtier|nx-remote-cache (Rust) on S3, memory tier on|http://127.0.0.1:3102"
-    "deno-s3|nx-cache-server (Deno) on S3|http://127.0.0.1:3201"
+    "deno-s3|IKatsuba/nx-cache-server (Deno) on S3|http://127.0.0.1:3201"
+    "tis-s3|the-inconvenience-store/nx-remote-cache (Go) on S3|http://127.0.0.1:3203"
+    "cacheiro-s3|rerodrigues/cacheiro (Node) on S3|http://127.0.0.1:3204"
     "rust-fs|nx-remote-cache (Rust) on local disk|http://127.0.0.1:3103"
-    "go-fs|nx-caching-server (Go) on local disk|http://127.0.0.1:3301"
+    "go-fs|enxtur/nx-caching-server (Go) on local disk|http://127.0.0.1:3301"
+    "shadi-fs|ShadiBlitz/nx-cache-server (Rust) on local disk|http://127.0.0.1:3302"
+    "cacheiro-fs|rerodrigues/cacheiro (Node) on local disk|http://127.0.0.1:3303"
+    "node-fs|jappyjan/nx-cache-server (Node) on local disk|http://127.0.0.1:3304"
   )
 fi
 
@@ -74,7 +88,7 @@ for size in $SIZES; do
       # Fresh, empty S3Mock for every S3 target: a filling store would penalise whoever runs last.
       docker compose rm -sf s3 >/dev/null 2>&1; docker compose up -d --wait s3 >/dev/null 2>&1
     fi
-    wait_ready "$url" || continue
+    if ! wait_ready "$url"; then echo "| $label | (not ready, skipped) | | | | | | |" >> "$OUT"; continue; fi
     echo ">> $label · $size bytes"
     bench --url "$url" --token bench --requests "$n" --concurrency "$CONC" --size "$size" | tail -n 3 | tee /dev/stderr | \
       LABEL="$label" python3 ./parse.py >> "$OUT"

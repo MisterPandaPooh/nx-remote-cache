@@ -58,8 +58,11 @@
 <p align="center"><img src="images/benchmark.svg" width="920" alt="Benchmark: requests per second per server, per artifact size"></p>
 
 Every open-source Nx cache server with a published image, each on every store it supports, in
-containers on one machine, 32 connections, same S3 bucket or same RAM-backed disk. Method, full
-tables, and where each competitor wins and why: [`docs/performance.md`](docs/performance.md).
+containers on one machine, 32 connections, same S3 bucket or same RAM-backed disk. First on
+uploads and on small and medium hits in both arenas, and 20 to 50× ahead on hot hits from the
+memory tier. Two honest losses: the Go servers lead on 4 MB uploads to S3 (about 25 %) and on
+4 MB hits from disk (3.5×, `sendfile`). Method, full tables, and why:
+[`docs/performance.md`](docs/performance.md).
 
 ## First run
 

@@ -1,7 +1,9 @@
-# Comparative benchmark: every server runs in a container on this machine, hit by
-# `nx-cache-bench` from the host. Two arenas:
-#   - object storage: nx-remote-cache vs nx-cache-server (Deno), both on the same S3 bucket (S3Mock)
-#   - local disk:     nx-remote-cache (file://) vs nx-caching-server (Go)
+# Comparative benchmark: every self-hosted Nx cache server with a published arm64 image, each on
+# every store it supports, all in containers on this machine, hit by `nx-cache-bench`. Two arenas:
+#   - object storage: the same S3 bucket on S3Mock
+#   - local disk:     the same RAM-backed tmpfs
+# Not benchmarked: slaweekq/nx-cache-s3 (amd64-only image, would run emulated), nxcite/nx-cache-server
+# (no published image).
 services:
   s3:
     # S3-compatible object store (MinIO no longer publishes community images).
@@ -11,6 +13,17 @@ services:
       COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: nx-cache
       debug: "false"
     ports: ["9090:9090"]
+
+  # S3Mock is path-style only. SDKs without a path-style option (ShadiBlitz, aws-sdk-s3) address the
+  # bucket as a host, nx-cache.s3: this nginx answers to that name and rewrites to path style. One
+  # extra hop, about 0.1 ms, only on that server's store round trips.
+  s3-vhost:
+    image: nginx:1.27-alpine
+    depends_on: [s3]
+    volumes: ["./s3-vhost.conf:/etc/nginx/conf.d/default.conf:ro"]
+    networks:
+      default:
+        aliases: [nx-cache.s3]
 
   rust-s3:
     image: nx-remote-cache:dev
@@ -42,6 +55,7 @@ services:
       RUST_LOG: warn
 
   deno-s3:
+    # IKatsuba/nx-cache-server
     image: ghcr.io/ikatsuba/nx-cache-server:latest
     depends_on: [s3]
     ports: ["3201:3000"]
@@ -53,6 +67,54 @@ services:
       S3_ENDPOINT_URL: http://s3:9090
       NX_CACHE_ACCESS_TOKEN: bench
       PORT: "3000"
+
+  shadi-s3:
+    # ShadiBlitz/nx-cache-server (Rust, aws-sdk-s3), through s3-vhost (see above). Not in run.sh:
+    # reads and misses work, every upload fails inside the SDK (streaming body without length).
+    image: shadiblitz/nx-cache-server:latest
+    depends_on: [s3, s3-vhost]
+    ports: ["3202:3000"]
+    environment:
+      STORAGE_PROVIDER: s3
+      S3_BUCKET: nx-cache
+      S3_REGION: us-east-1
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
+      AWS_ENDPOINT_URL: http://s3:9090
+      NX_CACHE_TOKEN: bench
+      NX_CACHE_PORT: "3000"
+      RUST_LOG: warn
+
+  tis-s3:
+    # the-inconvenience-store/nx-remote-cache (Go)
+    image: ghcr.io/the-inconvenience-store/nx-remote-cache:latest
+    depends_on: [s3]
+    ports: ["3203:3000"]
+    environment:
+      S3_BUCKET_NAME: nx-cache
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
+      S3_ENDPOINT_URL: http://s3:9090
+      S3_FORCE_PATH_STYLE: "true"
+      NX_CACHE_ACCESS_TOKEN: bench
+      PORT: "3000"
+
+  cacheiro-s3:
+    # rerodrigues/nx-remote-cache-server, "cacheiro" (Node)
+    image: ghcr.io/rerodrigues/cacheiro-instants-s3:latest
+    depends_on: [s3]
+    ports: ["3204:3000"]
+    environment:
+      CACHEIRO_PORT: "3000"
+      CACHEIRO_AUTH_TOKEN: bench
+      S3_BUCKET: nx-cache
+      S3_REGION: us-east-1
+      S3_ENDPOINT: http://s3:9090
+      S3_FORCE_PATH_STYLE: "true"
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
 
   rust-fs:
     image: nx-remote-cache:dev
@@ -73,6 +135,7 @@ services:
       RUST_LOG: warn
 
   go-fs:
+    # enxtur/nx-caching-server (Go)
     image: enxtur/nx-caching-server:latest
     ports: ["3301:8090"]
     environment:
@@ -80,6 +143,39 @@ services:
       AUTH_TOKEN: bench
       CLEANUP_THRESHOLD: 240h
     # Same RAM-backed disk as rust-fs, so neither side is measuring the VM's disk.
+    tmpfs: ["/data"]
+
+  shadi-fs:
+    # ShadiBlitz/nx-cache-server (Rust), local provider
+    image: shadiblitz/nx-cache-server:latest
+    ports: ["3302:3000"]
+    environment:
+      STORAGE_PROVIDER: local
+      NX_CACHE_DIR: /data
+      NX_CACHE_TOKEN: bench
+      NX_CACHE_PORT: "3000"
+      RUST_LOG: warn
+    tmpfs: ["/data"]
+
+  cacheiro-fs:
+    # rerodrigues/nx-remote-cache-server, "cacheiro" (Node), filesystem flavour
+    image: ghcr.io/rerodrigues/cacheiro-instants-fs:latest
+    ports: ["3303:3000"]
+    environment:
+      CACHEIRO_PORT: "3000"
+      CACHEIRO_AUTH_TOKEN: bench
+      CACHEIRO_CACHE_DIRECTORY: /data
+      CACHEIRO_CACHE_TTL_DAYS: "0"
+    tmpfs: ["/data"]
+
+  node-fs:
+    # jappyjan/nx-cache-server (Node, stdlib only); no published image: docker build -t nx-cache-jappyjan:bench https://github.com/jappyjan/nx-cache-server.git
+    image: nx-cache-jappyjan:bench
+    ports: ["3304:3000"]
+    environment:
+      CACHE_DIR: /data
+      TOKEN_RW: bench
+      PORT: "3000"
     tmpfs: ["/data"]
 
   # The load generator, kept running inside the compose network so the host bridge is not the
