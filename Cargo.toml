@@ -27,6 +27,7 @@ axum = { version = "0.8", default-features = false, features = ["http1", "http2"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
+mimalloc = "0.1"
 mime_guess = "2"
 object_store = { version = "0.14", default-features = false, features = ["fs", "azure-base", "aws-base", "gcp-base", "reqwest", "ring"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "stream"] }

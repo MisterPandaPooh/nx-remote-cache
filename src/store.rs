@@ -18,8 +18,15 @@ use object_store::{
 use crate::auth::Context as RequestContext;
 
 /// Disk writes up to this size are gathered and written in one blocking call; larger bodies
-/// stream chunk by chunk into a writer thread, so they are copied once.
+/// stream into a writer thread in blocks of `FS_WRITE_BLOCK`, so they are copied once.
 const FS_GATHER_MAX: u64 = 256 << 10;
+
+/// Body chunks are batched until this many bytes are pending before crossing to the writer
+/// thread: one wake-up per megabyte instead of one per socket read. Large chunks are passed
+/// through untouched (no copy); small ones are gathered so a chunked body does not turn into
+/// thousands of tiny writes.
+const FS_WRITE_BLOCK: usize = 1 << 20;
+const FS_GATHER_CHUNK: usize = 64 << 10;
 
 /// Prefix for the user-defined metadata keys written next to an artifact.
 const META_PREFIX: &str = "nx_";
@@ -385,15 +392,16 @@ impl CacheStore {
             }
             return Ok(PutOutcome::AlreadyExists);
         }
-        let (tx, rx) = std::sync::mpsc::sync_channel::<Bytes>(16);
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<Bytes>>(4);
         let (fp, tp) = (final_path.clone(), tmp.clone());
         let writer = tokio::task::spawn_blocking(move || -> std::io::Result<PutOutcome> {
             use std::io::Write;
-            let mut file = std::io::BufWriter::with_capacity(1 << 20, std::fs::File::create(&tp)?);
-            for chunk in rx {
-                file.write_all(&chunk)?;
+            let mut file = std::fs::File::create(&tp)?;
+            for batch in rx {
+                for piece in batch {
+                    file.write_all(&piece)?;
+                }
             }
-            file.flush()?;
             drop(file);
             if fp.exists() {
                 let _ = std::fs::remove_file(&tp);
@@ -404,18 +412,44 @@ impl CacheStore {
         });
         let mut received: u64 = 0;
         let mut failure: Option<PutError> = None;
+        let mut batch: Vec<Bytes> = Vec::new();
+        let mut pending = 0usize;
+        let mut small = BytesMut::new();
         while let Some(chunk) = body.next().await {
             match chunk {
                 Ok(c) => {
                     received += c.len() as u64;
-                    if tx.send(c).is_err() {
-                        break;
+                    pending += c.len();
+                    if c.len() >= FS_GATHER_CHUNK {
+                        if !small.is_empty() {
+                            batch.push(small.split().freeze());
+                        }
+                        batch.push(c);
+                    } else {
+                        small.extend_from_slice(&c);
+                    }
+                    if pending >= FS_WRITE_BLOCK {
+                        if !small.is_empty() {
+                            batch.push(small.split().freeze());
+                        }
+                        if tx.send(std::mem::take(&mut batch)).is_err() {
+                            break;
+                        }
+                        pending = 0;
                     }
                 }
                 Err(e) => {
                     failure = Some(e);
                     break;
                 }
+            }
+        }
+        if failure.is_none() {
+            if !small.is_empty() {
+                batch.push(small.freeze());
+            }
+            if !batch.is_empty() {
+                let _ = tx.send(batch);
             }
         }
         if failure.is_none() {

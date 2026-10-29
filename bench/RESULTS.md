@@ -1,67 +1,67 @@
 # Benchmark results
 
-Generated 2026-10-28T23:42:30Z on arm64 · Apple M4 Pro · Docker 29.2.0
+Generated 2026-10-29T02:35:00Z on arm64 · Apple M4 Pro · Docker 29.2.0
 
-Every server runs in its own container; `nx-cache-bench` runs in a container on the same Docker network with 32 concurrent connections, 400 requests per phase.
+Every server runs in its own container; `nx-cache-bench` runs in a container on the same Docker network with 32 concurrent connections, 1000 requests per phase (400 from 1 MB up), after an unmeasured warm-up of 64 uploads.
 Phases: PUT (unique hashes), GET hit (same hashes), GET miss (unknown hashes). Latencies are end-to-end as the Nx CLI sees them.
 
 ## Artifact size: 4096 bytes
 
 | Server | Phase | req/s | MB/s | p50 ms | p90 ms | p99 ms | failures |
 |---|---|---:|---:|---:|---:|---:|---:|
-| nx-remote-cache (Rust) on S3, memory tier off | PUT | 908 | 3.7 | 21.98 | 94.41 | 124.61 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 1712 | 7.0 | 14.24 | 37.02 | 81.33 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 3841 | 0.0 | 9.03 | 13.73 | 23.09 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | PUT | 887 | 3.6 | 24.98 | 98.08 | 113.81 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 45020 | 184.4 | 0.47 | 0.77 | 1.04 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 3619 | 0.0 | 10.07 | 14.99 | 24.17 | 0 |
-| nx-cache-server (Deno) on S3 | PUT | 589 | 2.4 | 39.16 | 96.00 | 120.07 | 0 |
-| nx-cache-server (Deno) on S3 | GET hit | 1833 | 7.5 | 16.40 | 22.89 | 38.64 | 0 |
-| nx-cache-server (Deno) on S3 | GET miss | 1761 | 0.0 | 14.70 | 25.20 | 58.89 | 0 |
-| nx-remote-cache (Rust) on local disk | PUT | 28247 | 115.7 | 0.82 | 1.70 | 3.32 | 0 |
-| nx-remote-cache (Rust) on local disk | GET hit | 53328 | 218.4 | 0.34 | 0.61 | 0.93 | 0 |
-| nx-remote-cache (Rust) on local disk | GET miss | 53420 | 0.0 | 0.45 | 0.72 | 1.09 | 0 |
-| nx-caching-server (Go) on local disk | PUT | 27221 | 111.5 | 0.67 | 2.49 | 4.16 | 0 |
-| nx-caching-server (Go) on local disk | GET hit | 42178 | 172.8 | 0.32 | 0.81 | 3.25 | 0 |
-| nx-caching-server (Go) on local disk | GET miss | 57260 | 0.0 | 0.33 | 0.58 | 0.80 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | PUT | 1247 | 5.1 | 21.44 | 51.71 | 88.94 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 2347 | 9.6 | 11.39 | 26.36 | 52.30 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 3271 | 0.0 | 10.58 | 13.33 | 22.84 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | PUT | 1263 | 5.2 | 22.02 | 48.17 | 91.97 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 139215 | 570.2 | 0.16 | 0.25 | 0.32 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 3141 | 0.0 | 10.70 | 14.10 | 24.52 | 0 |
+| nx-cache-server (Deno) on S3 | PUT | 764 | 3.1 | 36.01 | 70.01 | 102.69 | 0 |
+| nx-cache-server (Deno) on S3 | GET hit | 1986 | 8.1 | 15.50 | 20.36 | 32.34 | 0 |
+| nx-cache-server (Deno) on S3 | GET miss | 2244 | 0.0 | 13.95 | 16.98 | 21.08 | 0 |
+| nx-remote-cache (Rust) on local disk | PUT | 50984 | 208.8 | 0.49 | 1.15 | 1.94 | 0 |
+| nx-remote-cache (Rust) on local disk | GET hit | 129013 | 528.4 | 0.17 | 0.29 | 0.40 | 0 |
+| nx-remote-cache (Rust) on local disk | GET miss | 93155 | 0.0 | 0.25 | 0.52 | 0.80 | 0 |
+| nx-caching-server (Go) on local disk | PUT | 55563 | 227.6 | 0.28 | 1.20 | 3.05 | 0 |
+| nx-caching-server (Go) on local disk | GET hit | 93779 | 384.1 | 0.18 | 0.43 | 1.55 | 0 |
+| nx-caching-server (Go) on local disk | GET miss | 133899 | 0.0 | 0.12 | 0.27 | 1.41 | 0 |
 
 ## Artifact size: 262144 bytes
 
 | Server | Phase | req/s | MB/s | p50 ms | p90 ms | p99 ms | failures |
 |---|---|---:|---:|---:|---:|---:|---:|
-| nx-remote-cache (Rust) on S3, memory tier off | PUT | 758 | 198.7 | 28.24 | 104.36 | 134.51 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 1248 | 327.1 | 12.92 | 72.72 | 94.76 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 3917 | 0.0 | 8.89 | 15.32 | 24.24 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | PUT | 698 | 182.9 | 26.60 | 115.86 | 181.04 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 10903 | 2858.2 | 2.07 | 4.86 | 11.53 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 3528 | 0.0 | 10.77 | 14.55 | 26.12 | 0 |
-| nx-cache-server (Deno) on S3 | PUT | 499 | 130.7 | 48.00 | 122.08 | 174.51 | 0 |
-| nx-cache-server (Deno) on S3 | GET hit | 1397 | 366.2 | 18.19 | 50.15 | 60.98 | 0 |
-| nx-cache-server (Deno) on S3 | GET miss | 2188 | 0.0 | 14.28 | 16.31 | 26.90 | 0 |
-| nx-remote-cache (Rust) on local disk | PUT | 6702 | 1756.9 | 4.46 | 6.48 | 10.85 | 0 |
-| nx-remote-cache (Rust) on local disk | GET hit | 10360 | 2715.9 | 2.70 | 4.44 | 6.30 | 0 |
-| nx-remote-cache (Rust) on local disk | GET miss | 52070 | 0.0 | 0.44 | 0.90 | 1.81 | 0 |
-| nx-caching-server (Go) on local disk | PUT | 15945 | 4179.8 | 0.86 | 4.70 | 7.30 | 0 |
-| nx-caching-server (Go) on local disk | GET hit | 9765 | 2559.9 | 2.83 | 4.50 | 8.81 | 0 |
-| nx-caching-server (Go) on local disk | GET miss | 58645 | 0.0 | 0.42 | 0.66 | 0.87 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | PUT | 1119 | 293.4 | 23.26 | 58.25 | 100.02 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 2090 | 548.0 | 11.77 | 29.38 | 65.13 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 3218 | 0.0 | 10.46 | 12.95 | 22.11 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | PUT | 1104 | 289.3 | 23.51 | 60.52 | 92.33 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 52914 | 13871.0 | 0.36 | 0.68 | 2.54 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 3097 | 0.0 | 11.03 | 14.19 | 24.39 | 0 |
+| nx-cache-server (Deno) on S3 | PUT | 692 | 181.3 | 41.26 | 74.19 | 102.22 | 0 |
+| nx-cache-server (Deno) on S3 | GET hit | 1741 | 456.4 | 17.19 | 23.36 | 38.43 | 0 |
+| nx-cache-server (Deno) on S3 | GET miss | 2081 | 0.0 | 13.88 | 15.78 | 59.82 | 0 |
+| nx-remote-cache (Rust) on local disk | PUT | 22534 | 5907.1 | 1.04 | 2.65 | 4.65 | 0 |
+| nx-remote-cache (Rust) on local disk | GET hit | 43240 | 11335.0 | 0.40 | 0.96 | 4.17 | 0 |
+| nx-remote-cache (Rust) on local disk | GET miss | 92291 | 0.0 | 0.25 | 0.49 | 0.92 | 0 |
+| nx-caching-server (Go) on local disk | PUT | 19041 | 4991.5 | 0.87 | 3.70 | 7.10 | 0 |
+| nx-caching-server (Go) on local disk | GET hit | 51449 | 13487.1 | 0.38 | 1.02 | 2.02 | 0 |
+| nx-caching-server (Go) on local disk | GET miss | 128083 | 0.0 | 0.15 | 0.28 | 0.81 | 0 |
 
 ## Artifact size: 4194304 bytes
 
 | Server | Phase | req/s | MB/s | p50 ms | p90 ms | p99 ms | failures |
 |---|---|---:|---:|---:|---:|---:|---:|
-| nx-remote-cache (Rust) on S3, memory tier off | PUT | 336 | 1408.2 | 85.59 | 209.69 | 244.04 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 575 | 2410.7 | 50.91 | 88.37 | 122.57 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 3012 | 0.0 | 7.59 | 18.25 | 59.82 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | PUT | 329 | 1378.7 | 82.99 | 209.67 | 279.12 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 498 | 2087.5 | 55.94 | 98.81 | 137.70 | 0 |
-| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 4565 | 0.0 | 6.97 | 14.85 | 22.25 | 0 |
-| nx-cache-server (Deno) on S3 | PUT | 178 | 746.5 | 163.54 | 235.02 | 401.00 | 0 |
-| nx-cache-server (Deno) on S3 | GET hit | 471 | 1974.6 | 65.21 | 82.50 | 122.12 | 0 |
-| nx-cache-server (Deno) on S3 | GET miss | 1822 | 0.0 | 17.23 | 19.57 | 29.56 | 0 |
-| nx-remote-cache (Rust) on local disk | PUT | 1343 | 5632.2 | 22.39 | 32.32 | 46.26 | 0 |
-| nx-remote-cache (Rust) on local disk | GET hit | 877 | 3677.6 | 34.75 | 54.56 | 70.17 | 0 |
-| nx-remote-cache (Rust) on local disk | GET miss | 56657 | 0.0 | 0.39 | 0.61 | 0.80 | 0 |
-| nx-caching-server (Go) on local disk | PUT | 3463 | 14524.7 | 6.51 | 16.47 | 25.10 | 0 |
-| nx-caching-server (Go) on local disk | GET hit | 1025 | 4297.2 | 29.27 | 43.36 | 82.02 | 0 |
-| nx-caching-server (Go) on local disk | GET miss | 47329 | 0.0 | 0.39 | 0.83 | 2.66 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | PUT | 409 | 1716.9 | 73.24 | 148.44 | 209.44 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 997 | 4181.9 | 24.06 | 66.42 | 84.04 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 4194 | 0.0 | 8.08 | 12.97 | 21.94 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | PUT | 430 | 1802.7 | 61.83 | 135.37 | 202.02 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 796 | 3338.5 | 26.70 | 92.70 | 144.81 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 4201 | 0.0 | 8.48 | 13.38 | 20.33 | 0 |
+| nx-cache-server (Deno) on S3 | PUT | 165 | 694.1 | 158.90 | 203.49 | 244.90 | 0 |
+| nx-cache-server (Deno) on S3 | GET hit | 509 | 2133.1 | 60.26 | 77.59 | 108.77 | 0 |
+| nx-cache-server (Deno) on S3 | GET miss | 1799 | 0.0 | 17.40 | 19.22 | 27.72 | 0 |
+| nx-remote-cache (Rust) on local disk | PUT | 2897 | 12151.3 | 8.84 | 17.02 | 26.45 | 0 |
+| nx-remote-cache (Rust) on local disk | GET hit | 4023 | 16874.9 | 6.78 | 11.30 | 15.62 | 0 |
+| nx-remote-cache (Rust) on local disk | GET miss | 89857 | 0.0 | 0.22 | 0.42 | 0.75 | 0 |
+| nx-caching-server (Go) on local disk | PUT | 2278 | 9554.4 | 8.15 | 25.09 | 88.62 | 0 |
+| nx-caching-server (Go) on local disk | GET hit | 6551 | 27478.5 | 3.37 | 7.58 | 27.54 | 0 |
+| nx-caching-server (Go) on local disk | GET miss | 137868 | 0.0 | 0.14 | 0.28 | 0.40 | 0 |
 

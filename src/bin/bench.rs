@@ -8,6 +8,12 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Result};
 use tokio::sync::Semaphore;
 
+// musl's malloc serialises on a global lock and is slow under 32+ concurrent uploads;
+// mimalloc keeps the static (scratch) image fast.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[derive(Clone)]
 struct Args {
     url: String,
     token: Option<String>,
@@ -103,6 +109,24 @@ async fn main() -> Result<()> {
     );
 
     let hash = |i: usize| format!("bench-{run_id}-{i}");
+
+    // Warm-up: two rounds of uploads that are not measured, so connection setup and the
+    // server's thread pools do not land in the PUT phase of the fastest targets.
+    let warm = Arc::new(Args {
+        requests: args.concurrency * 2,
+        ..(*args).clone()
+    });
+    run(&warm, &client, "warm-up", |c, i| {
+        let body = payload.clone();
+        let url = format!("{}/v1/cache/warm-{}-{}", args.url, run_id, i);
+        let size = args.size as u64;
+        async move {
+            let res = c.put(url).header("content-length", size).body(body).send().await?;
+            Ok::<_, reqwest::Error>((res.status().as_u16(), size))
+        }
+    })
+    .await;
+
     let mut put = run(&args, &client, "PUT", |c, i| {
         let body = payload.clone();
         let url = format!("{}/v1/cache/{}", args.url, hash(i));

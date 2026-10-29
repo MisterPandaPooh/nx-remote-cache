@@ -64,6 +64,14 @@ services:
     # tmpfs owned by the server's uid: a named volume would be root-owned and unwritable.
     tmpfs: ["/data:uid=65534,gid=65534"]
 
+  # Diagnostic ceiling: same server, in-memory store, so the HTTP path can be measured alone.
+  rust-mem:
+    image: nx-remote-cache:dev
+    environment:
+      NX_CACHE_STORE_URL: memory:///
+      NX_CACHE_TOKEN: bench
+      RUST_LOG: warn
+
   go-fs:
     image: enxtur/nx-caching-server:latest
     ports: ["3301:8090"]
@@ -71,7 +79,8 @@ services:
       STORAGE_DIR: /data
       AUTH_TOKEN: bench
       CLEANUP_THRESHOLD: 240h
-    volumes: ["go-fs-data:/data"]
+    # Same RAM-backed disk as rust-fs, so neither side is measuring the VM's disk.
+    tmpfs: ["/data"]
 
   # The load generator, kept running inside the compose network so the host bridge is not the
   # bottleneck: docker compose exec bench nx-cache-bench --url http://rust-s3:3000 --token bench ...
@@ -80,5 +89,3 @@ services:
     profiles: ["tools"]
     entrypoint: ["sleep", "infinity"]
 
-volumes:
-  go-fs-data:

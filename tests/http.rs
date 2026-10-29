@@ -191,6 +191,37 @@ async fn filesystem_store_end_to_end() {
     assert!(dir.path().join("fs").is_file());
     assert_eq!(s.get("fs", "rw-token").await.bytes().await.unwrap().len(), 5000);
     assert_eq!(s.client.get(s.url("/readyz")).send().await.unwrap().status(), 200);
+
+    // Above the gather limit the body is coalesced into 1 MiB blocks: a size that is not a
+    // multiple of the block must still round-trip byte for byte, and a second PUT is a 409.
+    let big = payload((3 << 20) + 12_345);
+    assert_eq!(s.put("fs-big", "rw-token", big.clone()).await.status(), 200);
+    assert_eq!(s.get("fs-big", "rw-token").await.bytes().await.unwrap().to_vec(), big);
+    assert_eq!(s.put("fs-big", "rw-token", big.clone()).await.status(), 409);
+    assert!(std::fs::read_dir(dir.path()).unwrap().all(|e| !e
+        .unwrap()
+        .file_name()
+        .to_string_lossy()
+        .ends_with(".tmp")));
+
+    // Chunked (no Content-Length) large upload takes the same streaming path.
+    let chunks: Vec<Result<bytes::Bytes, std::io::Error>> = big
+        .chunks(100_000)
+        .map(|c| Ok(bytes::Bytes::copy_from_slice(c)))
+        .collect();
+    let res = s
+        .client
+        .put(s.url("/v1/cache/fs-chunked"))
+        .bearer_auth("rw-token")
+        .body(reqwest::Body::wrap_stream(futures_util::stream::iter(chunks)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+    assert_eq!(
+        s.get("fs-chunked", "rw-token").await.bytes().await.unwrap().to_vec(),
+        big
+    );
 }
 
 #[tokio::test]

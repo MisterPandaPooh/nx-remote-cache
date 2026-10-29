@@ -5,6 +5,11 @@ use tracing_subscriber::EnvFilter;
 use nx_remote_cache::store::CacheStore;
 use nx_remote_cache::{install_crypto_provider, router, AppState, Config};
 
+// musl's malloc serialises on a global lock and is slow under 32+ concurrent uploads;
+// mimalloc keeps the static (scratch) image fast.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     install_crypto_provider();

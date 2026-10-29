@@ -11,3 +11,5 @@ First release.
 - Dashboard (React) with live events, token login, retention and latency views.
 - Health, readiness, Prometheus metrics, JSON logs, graceful shutdown.
 - Docker image on `scratch` (~4 MB), Kubernetes manifests, GitHub Actions CI, comparative benchmark.
+- Local-disk uploads batch body chunks into 1 MiB writes without copying them; mimalloc replaces musl's
+  allocator in the static build (it was the bottleneck of both the server and the load generator).

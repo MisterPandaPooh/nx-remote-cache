@@ -7,10 +7,14 @@ cd "$(dirname "$0")"
 # built with `docker build --target bench -t nx-remote-cache:bench ..`); otherwise the host binary.
 IN_DOCKER="${IN_DOCKER:-1}"
 BENCH_BIN="${BENCH:-../target/release/nx-cache-bench}"
-REQUESTS="${REQUESTS:-400}"
+REQUESTS="${REQUESTS:-1000}"
+# Artifacts of 1 MB and more use fewer requests so no store spills out of RAM mid-phase.
+BIG_REQUESTS="${BIG_REQUESTS:-400}"
 CONC="${CONC:-32}"
 SIZES="${SIZES:-4096 262144 4194304}"
 OUT="${OUT:-RESULTS.md}"
+# ONLY="rust-fs go-fs" restricts the run to these target ids (space-separated).
+ONLY="${ONLY:-}"
 
 if [[ "$IN_DOCKER" == "1" ]]; then docker compose --profile tools up -d --wait 2>&1 | tail -3; else docker compose up -d --wait 2>&1 | tail -3; fi
 
@@ -50,12 +54,13 @@ fi
   echo "Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) on $(uname -m) · $(sysctl -n machdep.cpu.brand_string 2>/dev/null || grep -m1 'model name' /proc/cpuinfo | cut -d: -f2) · Docker $(docker version --format '{{.Server.Version}}')"
   echo
   if [[ "$IN_DOCKER" == "1" ]]; then where="in a container on the same Docker network"; else where="on the host"; fi
-  echo "Every server runs in its own container; \`nx-cache-bench\` runs $where with $CONC concurrent connections, $REQUESTS requests per phase."
+  echo "Every server runs in its own container; \`nx-cache-bench\` runs $where with $CONC concurrent connections, $REQUESTS requests per phase ($BIG_REQUESTS from 1 MB up), after an unmeasured warm-up of $((CONC * 2)) uploads."
   echo "Phases: PUT (unique hashes), GET hit (same hashes), GET miss (unknown hashes). Latencies are end-to-end as the Nx CLI sees them."
   echo
 } > "$OUT"
 
 for size in $SIZES; do
+  if (( size >= 1 << 20 )); then n="$BIG_REQUESTS"; else n="$REQUESTS"; fi
   {
     echo "## Artifact size: $size bytes"
     echo
@@ -64,13 +69,14 @@ for size in $SIZES; do
   } >> "$OUT"
   for t in "${targets[@]}"; do
     IFS='|' read -r id label url <<< "$t"
+    if [[ -n "$ONLY" && " $ONLY " != *" $id "* ]]; then continue; fi
     if [[ "$id" == *s3* ]]; then
       # Fresh, empty S3Mock for every S3 target: a filling store would penalise whoever runs last.
       docker compose rm -sf s3 >/dev/null 2>&1; docker compose up -d --wait s3 >/dev/null 2>&1
     fi
     wait_ready "$url" || continue
     echo ">> $label · $size bytes"
-    bench --url "$url" --token bench --requests "$REQUESTS" --concurrency "$CONC" --size "$size" | tail -n 3 | tee /dev/stderr | \
+    bench --url "$url" --token bench --requests "$n" --concurrency "$CONC" --size "$size" | tail -n 3 | tee /dev/stderr | \
       LABEL="$label" python3 ./parse.py >> "$OUT"
   done
   echo >> "$OUT"
