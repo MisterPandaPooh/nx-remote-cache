@@ -164,7 +164,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          helm dependency update charts/nx-remote-cache
+          helm dependency build charts/nx-remote-cache
           helm lint charts/nx-remote-cache --set storeUrl=memory:///
           helm template t charts/nx-remote-cache --set storeUrl=memory:/// >/dev/null
           mkdir -p dist

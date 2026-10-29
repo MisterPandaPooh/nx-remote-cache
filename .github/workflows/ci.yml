@@ -60,7 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-      - run: helm dependency update charts/nx-remote-cache
+      - run: helm dependency build charts/nx-remote-cache
       - run: helm lint charts/nx-remote-cache --strict --set storeUrl=memory:///
       - name: Render the common configurations
         run: |
