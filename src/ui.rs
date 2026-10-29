@@ -18,14 +18,18 @@ before <code>cargo build --release</code>, or use the Docker image.</p>
 
 pub async fn serve(uri: Uri) -> Response {
     let path = uri.path().trim_start_matches('/');
-    let path = if path.is_empty() { "index.html" } else { path };
-    match Assets::get(path) {
-        Some(file) => asset_response(path, file.data.into_owned()),
-        None if path.contains('.') => StatusCode::NOT_FOUND.into_response(),
-        None => match Assets::get("index.html") {
-            Some(index) => asset_response("index.html", index.data.into_owned()),
-            None => ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], NOT_BUILT).into_response(),
-        },
+    if !path.is_empty() {
+        if let Some(file) = Assets::get(path) {
+            return asset_response(path, file.data.into_owned());
+        }
+        // Looks like a file: a real 404. Anything else is a route of the single-page app.
+        if path.contains('.') {
+            return StatusCode::NOT_FOUND.into_response();
+        }
+    }
+    match Assets::get("index.html") {
+        Some(index) => asset_response("index.html", index.data.into_owned()),
+        None => ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], NOT_BUILT).into_response(),
     }
 }
 
