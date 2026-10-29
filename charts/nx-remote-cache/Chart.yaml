@@ -25,6 +25,10 @@ dependencies:
     version: 2.x.x
     tags:
       - bitnami-common
+  - name: redis
+    repository: oci://registry-1.docker.io/bitnamicharts
+    version: 28.x.x
+    condition: redis.enabled
 annotations:
   category: Infrastructure
   licenses: MIT

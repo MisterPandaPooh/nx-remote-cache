@@ -42,6 +42,7 @@ naming the value.
 | `server.uploads.*` | 2GB max, 8MB inline, 8MB × 4 multipart, 16 in flight | Upload limits; memory for uploads is bounded by `maxConcurrentPuts × max(inlineThreshold, multipartChunkSize × multipartConcurrency)`. |
 | `server.memoryTier.*` | on, 256MB, 4MB per item | Hot artifacts served from RAM. |
 | `server.kv.*` | on, `memory` backend, 64MB, 1MB per value | The `/v1/kv` key-value store. `backend: redis` with `redis.url` (or `redis.existingSecret` holding `NX_CACHE_KV_REDIS_URL`) shares keys between replicas; `memory` is per pod. |
+| `redis.enabled` | `false` | Deploy a Redis with the [Bitnami redis subchart](https://github.com/bitnami/charts/tree/main/bitnami/redis) and point the key-value store at it (URL and password wired automatically; the password is generated and kept across upgrades). Every other `redis.*` value goes to the subchart: `architecture: standalone`, `auth.enabled`, `master.persistence`, ... |
 | `server.github.*` | on, github.com | Run and repository context shown as GitHub links in the dashboard; `url` for GitHub Enterprise. GitHub is the only CI integration so far. |
 | `server.retention.*` | off | `ttl` (`30d`), `maxTotalSize` (`500GB`), `sweepInterval` (`1h`). |
 | `server.dashboard.*` | on | `token` or `existingSecret`/`existingSecretKey` for a dedicated dashboard token, `trustedHeader` for an SSO proxy. |

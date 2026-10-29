@@ -17,7 +17,9 @@ helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cach
   --set ingress.enabled=true --set ingress.hostname=nx-cache.example.com --set ingress.tls=true
 ```
 
-`store.type` picks the backend (`azure`, `s3`, `gcs`, `filesystem`, `memory`) and each one has its
+`redis.enabled=true` bundles a Redis (Bitnami subchart) and switches the key-value store to it, so
+every replica shares the same keys; without it the store is per pod unless you point
+`server.kv.redis.url` at a Redis of yours. `store.type` picks the backend (`azure`, `s3`, `gcs`, `filesystem`, `memory`) and each one has its
 own `auth` (Workload Identity, managed identity, IRSA, keys, SAS ...); the chart derives the store
 URL, the credentials secret and the ServiceAccount annotations. `server.*` covers uploads, the
 memory tier, the key-value store, retention, dashboard and logging with typed values. Images come

@@ -12,6 +12,7 @@ First release.
 - Health, readiness, Prometheus metrics, JSON logs, graceful shutdown.
 - Docker image on `scratch` (~4 MB), Kubernetes manifests, GitHub Actions CI, comparative benchmark.
 - Benchmark against every open-source Nx cache server with a published image (seven servers, two arenas); honest notes on where the Go servers are ahead.
+- Chart: `redis.enabled=true` bundles a Redis (Bitnami subchart) for the key-value store; `NX_CACHE_KV_REDIS_PASSWORD`.
 - Key-value store `redis` backend (`NX_CACHE_KV_BACKEND=redis`, `NX_CACHE_KV_REDIS_URL`): keys shared by
   every replica with Redis' own expiry; `/readyz` pings it.
 - Key-value store: isolation levels (`global`, `pipeline`, `run`, identifiers from the token context),

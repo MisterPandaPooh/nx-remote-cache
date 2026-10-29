@@ -48,8 +48,14 @@ impl AppState {
                     .kv_redis_url
                     .as_deref()
                     .expect("checked when the config was read");
-                crate::kv::KvStore::with_redis(kv_budget, config.kv_max_value, url, &config.kv_redis_prefix)
-                    .expect("NX_CACHE_KV_REDIS_URL is not a valid redis:// or rediss:// URL")
+                crate::kv::KvStore::with_redis(
+                    kv_budget,
+                    config.kv_max_value,
+                    url,
+                    config.kv_redis_password.as_deref(),
+                    &config.kv_redis_prefix,
+                )
+                .expect("NX_CACHE_KV_REDIS_URL is not a valid redis:// or rediss:// URL")
             }
         };
         Self(Arc::new(Inner {

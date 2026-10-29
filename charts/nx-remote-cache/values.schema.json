@@ -60,6 +60,7 @@
         "shutdownGraceSeconds": { "type": "integer", "minimum": 0 }
       }
     },
+    "redis": { "type": "object", "properties": { "enabled": { "type": "boolean" } } },
     "replicaCount": { "type": "integer", "minimum": 0 },
     "resourcesPreset": { "enum": ["none", "nano", "micro", "small", "medium", "large", "xlarge", "2xlarge"] }
   }

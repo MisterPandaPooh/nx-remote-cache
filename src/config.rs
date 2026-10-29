@@ -39,6 +39,9 @@ pub struct Config {
     pub kv_backend: KvBackend,
     /// `NX_CACHE_KV_REDIS_URL`, required with the redis backend; never logged (it may hold a password).
     pub kv_redis_url: Option<String>,
+    /// `NX_CACHE_KV_REDIS_PASSWORD`: set apart from the URL, so the URL can stay in plain config
+    /// while the password comes from a secret. Never logged.
+    pub kv_redis_password: Option<String>,
     /// `NX_CACHE_KV_REDIS_PREFIX`: first part of every Redis key.
     pub kv_redis_prefix: String,
     pub kv_bytes: u64,
@@ -120,6 +123,9 @@ impl Config {
                 .ok()
                 .map(|s| s.trim().to_owned())
                 .filter(|s| !s.is_empty()),
+            kv_redis_password: std::env::var("NX_CACHE_KV_REDIS_PASSWORD")
+                .ok()
+                .filter(|s| !s.is_empty()),
             kv_redis_prefix: std::env::var("NX_CACHE_KV_REDIS_PREFIX")
                 .ok()
                 .map(|s| s.trim().to_owned())
@@ -174,6 +180,7 @@ impl Config {
             kv_enabled: true,
             kv_backend: KvBackend::Memory,
             kv_redis_url: None,
+            kv_redis_password: None,
             kv_redis_prefix: "nxrc:kv".to_owned(),
             kv_bytes: 1 << 20,
             kv_max_value: 64 << 10,

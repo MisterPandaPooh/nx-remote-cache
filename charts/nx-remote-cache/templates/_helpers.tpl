@@ -186,6 +186,30 @@ memory:///
 
 {{/* ---------- server ---------- */}}
 
+{{/* The key-value backend actually used: the bundled Redis wins over the value. */}}
+{{- define "nx-remote-cache.kvBackend" -}}
+{{- ternary "redis" .Values.server.kv.backend .Values.redis.enabled -}}
+{{- end -}}
+
+{{/* Name of the bundled Redis release objects, as bitnami/redis computes it. */}}
+{{- define "nx-remote-cache.redis.fullname" -}}
+{{- if .Values.redis.fullnameOverride -}}
+{{- .Values.redis.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else if contains "redis" .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-redis" .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Secret and key holding the bundled Redis password. */}}
+{{- define "nx-remote-cache.redis.secretName" -}}
+{{- .Values.redis.auth.existingSecret | default (include "nx-remote-cache.redis.fullname" .) -}}
+{{- end -}}
+{{- define "nx-remote-cache.redis.passwordKey" -}}
+{{- .Values.redis.auth.existingSecretPasswordKey | default "redis-password" -}}
+{{- end -}}
+
 {{- define "nx-remote-cache.serverEnv" -}}
 {{- $v := .Values.server }}
 - name: NX_CACHE_MAX_ARTIFACT_BYTES
@@ -205,15 +229,27 @@ memory:///
 - name: NX_CACHE_KV_ENABLED
   value: {{ $v.kv.enabled | quote }}
 - name: NX_CACHE_KV_BACKEND
-  value: {{ $v.kv.backend | quote }}
-{{- if eq $v.kv.backend "redis" }}
+  value: {{ include "nx-remote-cache.kvBackend" . | quote }}
+{{- if eq (include "nx-remote-cache.kvBackend" .) "redis" }}
 - name: NX_CACHE_KV_REDIS_PREFIX
   value: {{ $v.kv.redis.prefix | quote }}
+{{- if and .Values.redis.enabled (not $v.kv.redis.url) (not $v.kv.redis.existingSecret) }}
+- name: NX_CACHE_KV_REDIS_URL
+  value: {{ printf "redis://%s-master:6379/0" (include "nx-remote-cache.redis.fullname" .) | quote }}
+{{- if .Values.redis.auth.enabled }}
+- name: NX_CACHE_KV_REDIS_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "nx-remote-cache.redis.secretName" . }}
+      key: {{ include "nx-remote-cache.redis.passwordKey" . }}
+{{- end }}
+{{- else }}
 - name: NX_CACHE_KV_REDIS_URL
   valueFrom:
     secretKeyRef:
       name: {{ $v.kv.redis.existingSecret | default (printf "%s-kv" (include "common.names.fullname" .)) }}
       key: {{ ternary $v.kv.redis.existingSecretKey "NX_CACHE_KV_REDIS_URL" (not (empty $v.kv.redis.existingSecret)) }}
+{{- end }}
 {{- end }}
 - name: NX_CACHE_KV_BYTES
   value: {{ $v.kv.size | quote }}
@@ -294,7 +330,7 @@ memory:///
 {{- if not .Values.persistence.enabled }}{{ $m = append $m "store.type=filesystem needs persistence.enabled: true (artifacts would vanish with the pod)" }}{{ end -}}
 {{- end -}}
 {{- if and (eq $s.type "memory") (gt (int .Values.replicaCount) 1) (not .Values.autoscaling.enabled) }}{{ $m = append $m "store.type=memory with several replicas gives each pod its own cache; set replicaCount: 1" }}{{ end -}}
-{{- if and (eq .Values.server.kv.backend "redis") (not .Values.server.kv.redis.url) (not .Values.server.kv.redis.existingSecret) }}{{ $m = append $m "server.kv.backend=redis needs server.kv.redis.url or server.kv.redis.existingSecret" }}{{ end -}}
+{{- if and (eq .Values.server.kv.backend "redis") (not .Values.redis.enabled) (not .Values.server.kv.redis.url) (not .Values.server.kv.redis.existingSecret) }}{{ $m = append $m "server.kv.backend=redis needs server.kv.redis.url, server.kv.redis.existingSecret, or redis.enabled=true to bundle one" }}{{ end -}}
 {{- if $m -}}
 {{- printf "\nVALUES VALIDATION:\n- %s\n" (join "\n- " $m) | fail -}}
 {{- end -}}

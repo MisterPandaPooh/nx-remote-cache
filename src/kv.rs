@@ -186,8 +186,19 @@ impl KvStore {
 
     /// Keys in Redis, shared by every replica. `budget` only keeps the enabled/disabled
     /// semantics (`0` disables); Redis' own `maxmemory` bounds the data.
-    pub fn with_redis(budget: u64, max_value: u64, url: &str, prefix: &str) -> Result<Self, redis::RedisError> {
-        let client = redis::Client::open(url)?;
+    pub fn with_redis(
+        budget: u64,
+        max_value: u64,
+        url: &str,
+        password: Option<&str>,
+        prefix: &str,
+    ) -> Result<Self, redis::RedisError> {
+        let mut info: redis::ConnectionInfo = redis::IntoConnectionInfo::into_connection_info(url)?;
+        if let Some(p) = password {
+            let settings = info.redis_settings().clone().set_password(p);
+            info = info.set_redis_settings(settings);
+        }
+        let client = redis::Client::open(info)?;
         Ok(Self {
             budget,
             max_value,
@@ -1018,8 +1029,8 @@ mod tests {
             return;
         };
         let prefix = format!("nxrc-test:{}", std::process::id());
-        let pod_a = KvStore::with_redis(1 << 20, 1 << 16, &url, &prefix).unwrap();
-        let pod_b = KvStore::with_redis(1 << 20, 1 << 16, &url, &prefix).unwrap();
+        let pod_a = KvStore::with_redis(1 << 20, 1 << 16, &url, None, &prefix).unwrap();
+        let pod_b = KvStore::with_redis(1 << 20, 1 << 16, &url, None, &prefix).unwrap();
         assert_eq!(pod_a.backend(), Backend::Redis);
         pod_a.probe().await.unwrap();
         pod_a
@@ -1086,6 +1097,15 @@ mod tests {
             pod_a.delete(l, s, k).await.unwrap();
         }
         assert!(pod_b.list_all(10).await.unwrap().is_empty());
+    }
+
+    #[test]
+    fn redis_password_apart_from_the_url() {
+        let kv = KvStore::with_redis(1, 1, "redis://redis-master:6379/0", Some("pw"), "nxrc:kv").unwrap();
+        let info = kv.redis.as_ref().unwrap().client.get_connection_info();
+        assert_eq!(info.redis_settings().password(), Some("pw"));
+        assert_eq!(info.redis_settings().db(), 0);
+        assert!(KvStore::with_redis(1, 1, "not a url", None, "x").is_err());
     }
 
     #[test]
