@@ -4,7 +4,7 @@
 
 | Method | Path | Auth | Responses |
 |---|---|---|---|
-| `PUT` | `/v1/cache/{hash}` | Bearer (rw) | 200 stored · 401 bad token · 403 read-only token · 409 exists · 413 too large · 411 no Content-Length |
+| `PUT` | `/v1/cache/{hash}` | Bearer (rw) | 200 stored · 400 body shorter or longer than announced · 401 bad token · 403 read-only token · 409 exists · 413 too large (chunked bodies without Content-Length are accepted) |
 | `GET` | `/v1/cache/{hash}` | Bearer (rw or ro) | 200 `application/octet-stream` · 401 · 404 miss |
 
 `hash` must match `^[A-Za-z0-9_-]{1,128}$`, else 400.
@@ -14,12 +14,13 @@
 | Path | Purpose |
 |---|---|
 | `GET /healthz` | process alive → `200 ok` |
-| `GET /readyz` | store reachable (HEAD on a probe key) → `200 ok` or `503` |
+| `GET /readyz` | store reachable (HEAD on a probe key) and not shutting down → `200 ok` or `503`; an unreachable Redis is reported in the body but keeps the pod ready |
 | `GET /metrics` | Prometheus text format |
 
 ## Dashboard API (consumed by `ui/`)
 
-All JSON. No auth unless `NX_CACHE_UI_TOKEN` is set (then `Authorization: Bearer` or `?token=`).
+All JSON. Needs `Authorization: Bearer` with `NX_CACHE_UI_TOKEN` or a cache token (read-only is
+enough); open when login is disabled. `?token=` is accepted on `/api/v1/events/stream` only.
 
 ### `GET /api/v1/stats`
 
@@ -80,28 +81,30 @@ bearer tokens as the cache (read-only tokens may only `GET`). Disabled with `NX_
 | Method and path | Request | Responses |
 |---|---|---|
 | `PUT /v1/kv/{key}[?level=&ttl=30s&secret=true]` | body = the value, `Content-Type` kept as is (default `application/octet-stream`); `application/json` bodies are validated | `204` stored · `400` bad key, level, TTL or invalid JSON · `401` · `403` read-only token · `413` above `NX_CACHE_KV_MAX_VALUE` |
-| `GET /v1/kv/{key}[?level=]` | | `200` with the stored `Content-Type`, `Cache-Control: no-store`, `x-kv-expires-in: <seconds>` when a TTL is set, `x-kv-secret: true` for secrets · `404` unknown or expired |
+| `GET /v1/kv/{key}[?level=]` | | `200` with the stored `Content-Type`, `Cache-Control: no-store`, `x-kv-expires-in: <seconds>` when a TTL is set, `x-kv-secret: true` for secrets · `403` secret read with a read-only token · `404` unknown or expired |
 | `DELETE /v1/kv/{key}[?level=]` | | `204` · `404` · `403` read-only token |
 | `GET /v1/kv[?level=&prefix=p&limit=100]` | | `200 {"level","scope"?,"keys":[{"level","scope"?,"key","size","content_type","secret","expires_in_secs"?}]}`, sorted, at most 1000 |
 | `GET /api/v1/kv` | dashboard guard | every key of every scope with the fields above plus `enabled`, `items`, `bytes`, `budget_bytes`, `max_value_bytes`; no values |
-| `GET /api/v1/kv/value?level=&scope=&key=` | dashboard guard | one value, for the dashboard's reveal button |
+| `GET /api/v1/kv/value?level=&scope=&key=` | dashboard guard | one value, for the dashboard's reveal button; a secret needs the read-write cache token in `Authorization` (`403` otherwise) |
 
 **Isolation levels.** `level=global` (default) is one namespace for everyone. `level=pipeline`
 gives each repository its own namespace, `level=run` each CI run: the identifier is read from
 the token context (`repo=` and `run=` after the token, the same context the dashboard uses) or
-from `?pipeline=` / `?run=`. A key never leaks across scopes: the same name in two runs is two
-keys. Pipeline and run identifiers match `[A-Za-z0-9_./:@-]{1,200}`.
+from `?pipeline=` / `?run=`. The same name in two runs is two keys. Scopes are namespaces, not
+an access boundary: the context is written by the client, and any token can name any scope.
+Pipeline and run identifiers match `[A-Za-z0-9_./:@-]{1,200}`.
 
 **Several pods.** With `NX_CACHE_KV_BACKEND=redis` every key is a Redis string named
 `<prefix>|<level>|<scope>|<key>` (a one-line JSON header with content type and secret flag, then
 the raw bytes) with Redis' own expiry, so all replicas read and write the same keys; `/readyz`
-pings Redis. The default `memory` backend is an LRU in each process: fast, but with several
-replicas each pod has its own keys.
+pings Redis and reports it, without failing the probe. The default `memory` backend is an LRU in
+each process: fast, but with several replicas each pod has its own keys.
 
-**Secrets.** `?secret=true` on the PUT marks the value: the dashboard shows it masked with a
-reveal button, `GET` adds `x-kv-secret: true`. The API itself returns the value to any valid
-token, so a read-only token is enough to read it: keep genuinely sensitive material in your
-CI's secret store and use this for things like short-lived tokens between jobs of one run.
+**Secrets.** `?secret=true` on the PUT marks the value: `GET` adds `x-kv-secret: true` and only
+the read-write token receives the body (the read-only token gets `403`, as does the dashboard's
+reveal without the read-write token); the dashboard shows it masked. Pull requests, which hold
+the read-only token, can therefore not read what a trusted job stored. Still keep long-lived
+credentials in your CI's secret store; this is for short-lived material between jobs.
 
 Keys match `[A-Za-z0-9_.:@-]{1,200}`. TTLs accept `45s`, `10m`, `12h`, `7d` or seconds. When the
 budget is exceeded the least recently read or written key is evicted first; expired keys go on

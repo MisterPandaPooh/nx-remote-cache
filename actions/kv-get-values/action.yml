@@ -2,7 +2,8 @@ name: nx-remote-cache kv-get-values
 description: >-
   Read values from the key-value store of an nx-remote-cache server, scoped to the whole cache,
   to this repository or to this workflow run. Values come back as a JSON object and, on request,
-  as environment variables for the following steps. Values stored as secrets are masked.
+  as environment variables for the following steps. Values stored as secrets are masked and
+  need the read-write token (the read-only one gets 403).
 author: MisterPandaPooh
 branding:
   icon: database

@@ -29,6 +29,8 @@ pub struct Inner {
     pub put_permits: tokio::sync::Semaphore,
     pub memcache: crate::memcache::MemCache,
     pub kv: crate::kv::KvStore,
+    /// Set on the shutdown signal: `/readyz` answers 503 so the load balancer stops routing here.
+    pub draining: std::sync::atomic::AtomicBool,
 }
 
 impl AppState {
@@ -66,6 +68,7 @@ impl AppState {
             put_permits,
             memcache,
             kv,
+            draining: std::sync::atomic::AtomicBool::new(false),
         }))
     }
 

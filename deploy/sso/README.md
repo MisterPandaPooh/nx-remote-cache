@@ -45,8 +45,8 @@ services:
           - name: request-transformer
             config:
               add: { headers: ["X-Auth-Request-Email:$(headers.x-consumer-username)"] }
-      - name: cache-api
-        paths: ["/v1/cache"]
+      - name: cache-api                  # /v1/cache and /v1/kv: bearer tokens, no SSO
+        paths: ["/v1"]
         plugins:
           - name: key-auth
           - name: request-transformer

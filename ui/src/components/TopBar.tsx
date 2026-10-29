@@ -41,7 +41,7 @@ interface TopBarProps {
 
 export function TopBar({ stats, mode, streaming, stale, hasToken, onDisconnect }: TopBarProps) {
   const status =
-    stale && mode === 'live'
+    stale && (mode === 'live' || mode === 'probing')
       ? { text: 'Server unreachable', cls: 'text-bad', pulse: false }
       : mode === 'auth'
         ? { text: 'Locked', cls: 'text-miss', pulse: false }

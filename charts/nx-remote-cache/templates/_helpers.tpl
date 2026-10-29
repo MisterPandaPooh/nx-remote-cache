@@ -330,6 +330,9 @@ memory:///
 {{- if not .Values.persistence.enabled }}{{ $m = append $m "store.type=filesystem needs persistence.enabled: true (artifacts would vanish with the pod)" }}{{ end -}}
 {{- end -}}
 {{- if and (eq $s.type "memory") (gt (int .Values.replicaCount) 1) (not .Values.autoscaling.enabled) }}{{ $m = append $m "store.type=memory with several replicas gives each pod its own cache; set replicaCount: 1" }}{{ end -}}
+{{- if and (eq $s.type "memory") .Values.autoscaling.enabled }}{{ $m = append $m "store.type=memory cannot autoscale: each pod would have its own cache" }}{{ end -}}
+{{- if and (eq $s.type "filesystem") (or (gt (int .Values.replicaCount) 1) .Values.autoscaling.enabled) (not .Values.persistence.existingClaim) (not (has "ReadWriteMany" .Values.persistence.accessModes)) }}{{ $m = append $m "store.type=filesystem with several replicas needs a ReadWriteMany volume (persistence.accessModes) or persistence.existingClaim; otherwise set replicaCount: 1 and autoscaling.enabled: false" }}{{ end -}}
+{{- if and .Values.server.dashboard.token (not .Values.server.dashboard.existingSecret) (or (not .Values.auth.enabled) .Values.auth.existingSecret) }}{{ $m = append $m "server.dashboard.token lives in the chart's token secret, which is not rendered with auth.enabled=false or auth.existingSecret; use server.dashboard.existingSecret" }}{{ end -}}
 {{- if and (eq .Values.server.kv.backend "redis") (not .Values.redis.enabled) (not .Values.server.kv.redis.url) (not .Values.server.kv.redis.existingSecret) }}{{ $m = append $m "server.kv.backend=redis needs server.kv.redis.url, server.kv.redis.existingSecret, or redis.enabled=true to bundle one" }}{{ end -}}
 {{- if $m -}}
 {{- printf "\nVALUES VALIDATION:\n- %s\n" (join "\n- " $m) | fail -}}

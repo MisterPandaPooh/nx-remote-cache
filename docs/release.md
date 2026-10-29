@@ -16,13 +16,17 @@ workflow. Before `1.0`, minor versions may change behaviour; patch versions neve
 Pushes to `main` keep publishing `ghcr.io/…:main` and `…:sha-<commit>` from the CI workflow;
 `latest` only moves on a release.
 
-Verify a signature (no key to distribute, the identity is the workflow itself):
+Verify a signature (no key to distribute, the identity is the workflow itself; a release run
+from the Actions UI signs as `@refs/heads/main`, a tag push as `@refs/tags/vX.Y.Z`):
 
 ```bash
 cosign verify ghcr.io/misterpandapooh/nx-remote-cache:0.1.0 \
-  --certificate-identity-regexp '^https://github.com/MisterPandaPooh/nx-remote-cache/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-identity-regexp '^https://github.com/MisterPandaPooh/nx-remote-cache/\.github/workflows/release\.yml@refs/(tags/v[0-9]|heads/main)' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+
+The publishing jobs run only after the same `fmt`, `clippy` and `cargo test` gate as CI passes
+on the release commit, and a release whose assets already exist is never overwritten.
 
 ## Cutting a release
 

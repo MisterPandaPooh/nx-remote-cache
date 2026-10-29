@@ -29,6 +29,9 @@ jobs:
   prepare:
     name: Version
     runs-on: ubuntu-latest
+    # The environment's reviewers approve before the release commit and tag exist, so a
+    # refused release does not burn a version.
+    environment: release
     permissions:
       contents: write
     outputs:
@@ -65,11 +68,47 @@ jobs:
           echo "version=$(python3 scripts/release.py current)" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+  test:
+    # Nothing is published from a commit that does not pass the same gate as CI.
+    name: Rust (fmt, clippy, test)
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      NX_CACHE_TEST_REDIS_URL: redis://127.0.0.1:6379/
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable, 2026-10
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.4.0
+        with:
+          version: 10
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile && pnpm build
+        working-directory: ui
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+
   image:
     # One native build per platform (arm64 on GitHub's arm runners), pushed by digest to both
     # registries; the manifest job stitches the version tags, signs them and extracts the binaries.
     name: Image (${{ matrix.platform }})
-    needs: prepare
+    needs: [prepare, test]
     strategy:
       fail-fast: false
       matrix:
@@ -211,7 +250,7 @@ jobs:
 
   chart:
     name: Helm chart (ghcr.io)
-    needs: prepare
+    needs: [prepare, test]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -229,8 +268,8 @@ jobs:
         run: |
           set -euo pipefail
           helm dependency build charts/nx-remote-cache
-          helm lint charts/nx-remote-cache --set storeUrl=memory:///
-          helm template t charts/nx-remote-cache --set storeUrl=memory:/// >/dev/null
+          helm lint charts/nx-remote-cache --strict --set store.type=memory --set replicaCount=1
+          helm template t charts/nx-remote-cache --set store.type=memory --set replicaCount=1 >/dev/null
           mkdir -p dist
           helm package charts/nx-remote-cache --version "$VERSION" --app-version "$VERSION" --destination dist
       - name: Push and sign
@@ -278,9 +317,10 @@ jobs:
           python3 scripts/release.py notes "$VERSION" > notes.md
           printf '\nImage digest: `%s`\n' "$DIGEST" >> notes.md
           prerelease=""; case "$VERSION" in *-*) prerelease="--prerelease";; esac
+          # Published assets are never replaced: a re-run cannot swap the binaries under an
+          # existing release. Delete the release by hand to publish it again.
           if gh release view "v$VERSION" >/dev/null 2>&1; then
-            gh release upload "v$VERSION" dist/* --clobber
-            gh release edit "v$VERSION" --notes-file notes.md
-          else
-            gh release create "v$VERSION" dist/* --title "v$VERSION" --notes-file notes.md $prerelease
+            echo "release v$VERSION already exists; delete it first to publish again" >&2
+            exit 1
           fi
+          gh release create "v$VERSION" dist/* --title "v$VERSION" --notes-file notes.md $prerelease

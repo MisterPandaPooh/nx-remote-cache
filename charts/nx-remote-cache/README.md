@@ -56,7 +56,7 @@ naming the value.
 |---|---|---|
 | `image.registry`, `image.repository`, `image.tag`, `image.digest` | ghcr.io, `misterpandapooh/nx-remote-cache`, chart appVersion | Docker Hub mirror: `image.registry=docker.io`. |
 | `replicaCount`, `updateStrategy`, `podAntiAffinityPreset` | `2`, surge 1 / unavailable 0, `soft` | |
-| `resourcesPreset`, `resources` | `small`, `{}` | Bitnami preset or explicit resources; 1Gi of memory is comfortable with the upload defaults. |
+| `resourcesPreset`, `resources` | `medium`, `{}` | Bitnami preset or explicit resources; the upload defaults can use up to ~830 MB, which `medium` (1.5Gi limit) covers and `small` (768Mi) does not. |
 | `persistence.*` | disabled | PVC for the filesystem store. |
 | `service.*` | ClusterIP :80, Prometheus annotations | |
 | `ingress.*` | disabled | `hostname`, `path`, `tls` (secret `<hostname>-tls`, cert-manager annotations honoured), `extraHosts`, `extraTls`; nginx annotations preset for large bodies and long timeouts. |

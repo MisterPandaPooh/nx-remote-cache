@@ -323,14 +323,20 @@ pub async fn healthz() -> &'static str {
     "ok"
 }
 
+/// Readiness: the store answers and we are not shutting down. The key-value store is reported
+/// but never fails the probe: the cache API works without it, and taking every pod out of the
+/// Service because Redis restarted would stop the builds it serves.
 pub async fn readyz(State(state): State<AppState>) -> Response {
+    if state.draining.load(std::sync::atomic::Ordering::Relaxed) {
+        return text(StatusCode::SERVICE_UNAVAILABLE, "draining");
+    }
     if let Err(e) = state.store.probe().await {
         tracing::warn!(error = %e, "readiness probe failed");
-        return text(StatusCode::SERVICE_UNAVAILABLE, format!("store unavailable: {e}"));
+        return text(StatusCode::SERVICE_UNAVAILABLE, "store unavailable");
     }
     if let Err(e) = state.kv.probe().await {
-        tracing::warn!(error = ?e, "readiness probe failed: key-value store");
-        return text(StatusCode::SERVICE_UNAVAILABLE, "key-value store (redis) unavailable");
+        tracing::warn!(error = ?e, "key-value store (redis) unavailable; cache API still ready");
+        return "ok (key-value store unavailable)".into_response();
     }
     "ok".into_response()
 }
@@ -461,6 +467,19 @@ pub struct TokenQuery {
     token: Option<String>,
 }
 
+/// Only route where the token may travel in the query string: `EventSource` cannot set headers.
+/// Everywhere else a `?token=` would end up in proxy and browser logs for nothing.
+const QUERY_TOKEN_PATH: &str = "/api/v1/events/stream";
+
+/// The `Authorization` header value, or one built from `?token=` when allowed on this path.
+pub(crate) fn presented_bearer(headers: &HeaderMap, query_token: Option<&str>) -> Option<String> {
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned)
+        .or_else(|| query_token.map(|t| format!("Bearer {t}")))
+}
+
 /// Gate for the dashboard and its API. Accepts `NX_CACHE_UI_TOKEN` when set, or any cache
 /// token (read-write or read-only). Open when login is disabled, or when the cache runs
 /// anonymous and no dashboard token is set.
@@ -479,20 +498,12 @@ pub async fn ui_guard(
             return next.run(req).await;
         }
     }
-    let header = req
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_owned);
-    let presented = header
-        .clone()
-        .or_else(|| q.token.as_ref().map(|t| format!("Bearer {t}")));
-    let raw = q.token.clone().or_else(|| {
-        header
-            .as_deref()
-            .and_then(|h| h.split_once(char::is_whitespace))
-            .map(|(_, t)| t.trim().to_owned())
-    });
+    let query_token = q.token.as_deref().filter(|_| req.uri().path() == QUERY_TOKEN_PATH);
+    let presented = presented_bearer(req.headers(), query_token);
+    let raw = presented
+        .as_deref()
+        .and_then(|h| h.split_once(char::is_whitespace))
+        .map(|(_, t)| t.trim().to_owned());
     let ok = ui_token
         .zip(raw.as_deref())
         .is_some_and(|(e, p)| Tokens::matches_single(e, p))

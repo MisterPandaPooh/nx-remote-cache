@@ -57,8 +57,8 @@ export function ConnectScreen({ error, onConnect }: Props) {
             Connect to your <span className="grad-text">cache</span>
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-dim">
-            This dashboard is protected. Enter the dashboard token (<span className="font-mono text-ink">NX_CACHE_UI_TOKEN</span>) or any Nx cache token.
-            It stays in this browser only.
+            This dashboard is protected. Enter the dashboard token (<span className="font-mono text-ink">NX_CACHE_UI_TOKEN</span>) or the read-only cache token.
+            It stays in this browser only; only revealing a key-value secret needs the read-write token.
           </p>
 
           <form onSubmit={submit} className="mt-6 space-y-4" noValidate>

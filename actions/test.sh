@@ -41,6 +41,17 @@ INPUT_LEVEL=pipeline INPUT_KEY=build-number INPUT_VALUE=42 INPUT_CONTENT_TYPE=ap
 cat "$tmp/set2.out"
 expect "set: plain log line without trailing flags" -Fx "kv-set-values: stored build-number (level pipeline)" "$tmp/set2.out"
 
+# 2b. a multi-line secret is masked line by line; a value starting with @ is sent verbatim,
+#     not read from a file by curl
+reset_inputs
+INPUT_LEVEL=run INPUT_SECRET=true INPUT_KEY=pem INPUT_VALUE=$'line-one-s3cr3t\nline-two-s3cr3t' \
+  bash "$set_sh" > "$tmp/set2b.out"
+expect "set: first line of a multi-line secret masked" -F "::add-mask::line-one-s3cr3t" "$tmp/set2b.out"
+expect "set: second line of a multi-line secret masked" -F "::add-mask::line-two-s3cr3t" "$tmp/set2b.out"
+reset_inputs
+INPUT_LEVEL=run INPUT_KEY=handle INPUT_VALUE='@acme/pkg' bash "$set_sh" > "$tmp/set2c.out"
+expect "set: @-prefixed value stored" -F "stored handle" "$tmp/set2c.out"
+
 # 3. an invalid key is rejected
 reset_inputs
 if INPUT_LEVEL=run INPUT_KEY='bad key' INPUT_VALUE=x bash "$set_sh" > "$tmp/set3.out" 2>&1; then
@@ -51,16 +62,20 @@ expect "set: invalid key rejected" -F "invalid key" "$tmp/set3.out"
 # 4. read back with one missing key and export to env
 : > "$GITHUB_OUTPUT"
 reset_inputs
-INPUT_LEVEL=run INPUT_KEYS=$'preview-url\npreview-token\nno-such-key' INPUT_EXPORT_ENV=true \
+INPUT_LEVEL=run INPUT_KEYS=$'preview-url\npreview-token\npem\nhandle\nno-such-key' INPUT_EXPORT_ENV=true \
   bash "$get_sh" > "$tmp/get1.out"
 cat "$tmp/get1.out"
-expect "get: found=2" -Fx "found=2" "$GITHUB_OUTPUT"
+expect "get: found=4" -Fx "found=4" "$GITHUB_OUTPUT"
 expect "get: url in values json" -F "https://pr-1.preview.example.com" "$GITHUB_OUTPUT"
 expect "get: token in values json" -F "s3cr3t-value" "$GITHUB_OUTPUT"
+expect "get: @-prefixed value read back verbatim" -F '"handle":"@acme/pkg"' "$GITHUB_OUTPUT"
 expect "get: env name without trailing underscore" -F "KV_PREVIEW_URL<<" "$GITHUB_ENV"
 expect "get: env token exported" -F "KV_PREVIEW_TOKEN<<" "$GITHUB_ENV"
 if grep -q "KV_PREVIEW_URL_" "$GITHUB_ENV"; then fail "get: env name has a trailing underscore"; fi
 expect "get: secrets masked in stdout" -F "::add-mask::s3cr3t-value" "$tmp/get1.out"
+expect "get: every line of a multi-line secret masked" -F "::add-mask::line-two-s3cr3t" "$tmp/get1.out"
+expect "get: multi-line value exported whole" -F "line-two-s3cr3t" "$GITHUB_ENV"
+expect "get: env delimiter is random" -E "KV_PEM<<__KV_[0-9a-f]{32}__" "$GITHUB_ENV"
 expect "get: missing key reported" -F "no-such-key not found" "$tmp/get1.out"
 
 # 5. required missing key fails

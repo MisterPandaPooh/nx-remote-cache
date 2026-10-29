@@ -35,10 +35,16 @@ runs:
       run: |
         set -euo pipefail
         [[ "$KEY" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { echo "invalid key: $KEY" >&2; exit 1; }
-        code=$(curl -sS -o /tmp/nxrc-cache.tar.zst -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$SERVER/v1/cache/$KEY")
+        archive=$(mktemp); trap 'rm -f "$archive"' EXIT
+        code=$(curl -sS --connect-timeout 10 --max-time 600 --retry 2 --retry-connrefused -o "$archive" -w '%{http_code}' \
+          -H "Authorization: Bearer $TOKEN" "$SERVER/v1/cache/$KEY")
         if [[ "$code" == "200" ]]; then
-          tar --zstd -xf /tmp/nxrc-cache.tar.zst
-          echo "hit=true" >> "$GITHUB_OUTPUT"; echo "::notice::nx-remote-cache: restored $KEY"
+          # --no-same-owner: a root job (container:) must not restore files owned by other users.
+          if tar --zstd -xf "$archive" --no-same-owner; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"; echo "::notice::nx-remote-cache: restored $KEY"
+          else
+            echo "::warning::nx-remote-cache: archive for $KEY could not be extracted, continuing without cache"; echo "hit=false" >> "$GITHUB_OUTPUT"
+          fi
         elif [[ "$code" == "404" ]]; then
           echo "hit=false" >> "$GITHUB_OUTPUT"; echo "nx-remote-cache: miss for $KEY"
         else
@@ -51,12 +57,14 @@ runs:
         post: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          mapfile -t paths <<< "$NXRC_PATHS"
-          tar --zstd -cf /tmp/nxrc-save.tar.zst "${paths[@]}"
-          code=$(curl -sS -o /dev/null -w '%{http_code}' -X PUT -H "Authorization: Bearer $NXRC_TOKEN" \
-            -H "Content-Type: application/octet-stream" --data-binary @/tmp/nxrc-save.tar.zst "$NXRC_SERVER/v1/cache/$NXRC_KEY")
+          mapfile -t paths < <(printf '%s\n' "$NXRC_PATHS" | sed '/^[[:space:]]*$/d')
+          archive=$(mktemp); trap 'rm -f "$archive"' EXIT
+          # `--` so a path starting with `-` is a path, never a tar option.
+          tar --zstd -cf "$archive" -- "${paths[@]}"
+          code=$(curl -sS --connect-timeout 10 --max-time 1800 -o /dev/null -w '%{http_code}' -X PUT -H "Authorization: Bearer $NXRC_TOKEN" \
+            -H "Content-Type: application/octet-stream" --data-binary "@$archive" "$NXRC_SERVER/v1/cache/$NXRC_KEY")
           case "$code" in
-            200) echo "nx-remote-cache: saved $NXRC_KEY ($(du -h /tmp/nxrc-save.tar.zst | cut -f1))";;
+            200) echo "nx-remote-cache: saved $NXRC_KEY ($(du -h "$archive" | cut -f1))";;
             409) echo "nx-remote-cache: $NXRC_KEY already saved by another job";;
             403) echo "nx-remote-cache: token is read-only, not saving";;
             *)   echo "::warning::nx-remote-cache: save returned HTTP $code";;

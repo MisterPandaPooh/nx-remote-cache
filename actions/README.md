@@ -26,6 +26,12 @@ links every artifact to its run.
 
 Outputs `cache-hit`. Keys are immutable: put a content hash in them.
 
+Give pull-request builds the read-only token (`NX_CACHE_READ_TOKEN`): they restore but never
+save, so a pull request cannot plant an archive under a key a trusted branch will reuse. The
+read-write token stays on trusted branches, as in
+[`examples/github-actions/nx-ci.yml`](../examples/github-actions/nx-ci.yml). The same rule
+applies to `kv-set-values`.
+
 ## kv-set-values
 
 ```yaml
@@ -35,7 +41,7 @@ Outputs `cache-hit`. Keys are immutable: put a content hash in them.
     token: ${{ secrets.NX_CACHE_TOKEN }}
     level: run            # global | pipeline | run
     ttl: 2h
-    secret: "true"        # masked here and in the dashboard
+    secret: "true"        # masked here and in the dashboard; readable with the read-write token only
     values: |
       preview-url=https://pr-${{ github.event.number }}.preview.example.com
       preview-token=${{ steps.deploy.outputs.token }}
@@ -62,7 +68,8 @@ Outputs `cache-hit`. Keys are immutable: put a content hash in them.
 ```
 
 Outputs `values` (JSON object of the keys found) and `found`. A value the server marks as a
-secret is masked before it is written anywhere. Values are text; binary values are not
+secret is masked before it is written anywhere, and is only served to the read-write token
+(the read-only token gets a 403 and the step fails). Values are text; binary values are not
 supported by this action.
 
 ## Publishing

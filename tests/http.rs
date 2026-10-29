@@ -341,9 +341,20 @@ async fn ui_token_guards_dashboard_but_not_cache_api() {
     cfg.ui_token = Some("ui-secret".into());
     let s = start(cfg).await;
     assert_eq!(s.client.get(s.url("/api/v1/stats")).send().await.unwrap().status(), 401);
+    // `?token=` only works on the SSE stream (EventSource cannot set headers); anywhere else
+    // it would only end up in proxy logs.
     assert_eq!(
         s.client
             .get(s.url("/api/v1/stats?token=ui-secret"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+    assert_eq!(
+        s.client
+            .get(s.url("/api/v1/events/stream?token=ui-secret"))
             .send()
             .await
             .unwrap()
@@ -795,6 +806,24 @@ async fn kv_scopes_secrets_and_dashboard() {
     let run = get("/v1/kv/k?level=run", ctx).send().await.unwrap();
     assert_eq!(run.headers().get("x-kv-secret").unwrap(), "true");
     assert_eq!(run.text().await.unwrap(), "r");
+    // A secret is only served to the read-write token; the read-only one (pull requests)
+    // gets 403, and still reads plain values.
+    assert_eq!(
+        get("/v1/kv/k?level=run&run=42", "ro-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    assert_eq!(
+        get("/v1/kv/k?level=pipeline&pipeline=org/app", "ro-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
     // Another run or repo does not see them; explicit identifiers override the context.
     assert_eq!(
         get("/v1/kv/k?level=run", "rw-token;run=43")
@@ -858,6 +887,23 @@ async fn kv_scopes_secrets_and_dashboard() {
         .unwrap();
     assert_eq!(value.status(), 200);
     assert_eq!(value.text().await.unwrap(), "r");
+    // The reveal button needs the read-write token for secrets; plain values stay readable.
+    assert_eq!(
+        get("/api/v1/kv/value?level=run&scope=42&key=k", "ro-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    assert_eq!(
+        get("/api/v1/kv/value?level=global&key=k", "ro-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
     assert_eq!(
         get("/api/v1/kv/value?level=global&key=nope", "rw-token")
             .send()

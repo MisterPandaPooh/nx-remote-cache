@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+Security and correctness fixes from a full code review and security audit.
+
+- **Key-value store**: a value stored with `?secret=true` is now served only to the read-write
+  token; the read-only token and the dashboard's reveal without it get `403`. Docs say that
+  scopes are namespaces, not an access boundary.
+- **Composite actions**: every line of a multi-line secret is masked (`::add-mask::` is one line
+  per command); inline values go through stdin so a value starting with `@` is stored verbatim
+  instead of making curl read a runner file; random `GITHUB_ENV` delimiter; `;` in a branch name
+  cannot inject a context pair; `tar --no-same-owner`, curl timeouts, temp files from `mktemp`.
+- **`file://` store**: a failed or truncated upload is never renamed into place, and its cleanup
+  no longer deletes a valid artifact a concurrent upload stored under the same hash.
+- **Server**: `NX_CACHE_SHUTDOWN_GRACE_SECS` is applied (it was read but unused) and `/readyz`
+  answers `503` while draining; an unreachable Redis is reported by `/readyz` without taking the
+  pod out of the Service; store errors are logged, not echoed by `/readyz`; `?token=` is accepted
+  on the SSE stream only; the memory key-value backend's LRU queue is compacted (it grew without
+  bound under heavy reads).
+- **Dashboard**: production builds never show generated data (mock mode is dev-only); the
+  connect screen asks for the read-only token.
+- **Chart**: refuses `memory` with autoscaling, `filesystem` with several replicas on a
+  `ReadWriteOnce` volume, and `server.dashboard.token` when the token secret is not rendered;
+  tokens set in values replace the stored ones on upgrade; `resourcesPreset` defaults to `medium`;
+  NOTES warns about the memory key-value backend with several replicas; SSO examples bypass auth
+  for all of `/v1/`.
+- **Release workflow**: the chart job used a value that does not exist, so nothing after it ran;
+  publishing now needs the fmt/clippy/test gate, the environment approval comes before the
+  release commit and tag, and existing release assets are never overwritten.
+
 ## 0.1.0 (2026-10-29)
 
 First release.
