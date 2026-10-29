@@ -2,8 +2,7 @@
 
 ## Unreleased
 
-Security and correctness fixes from a full review (`docs/superpowers/specs` has the design; the
-review itself was not committed).
+Security and correctness fixes from a full code review and security audit.
 
 - **Key-value store**: a value stored with `?secret=true` is now served only to the read-write
   token; the read-only token and the dashboard's reveal without it get `403`. Docs say that
