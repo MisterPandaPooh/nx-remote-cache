@@ -11,8 +11,10 @@
     </linearGradient>
   </defs>
   <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)" stroke="rgba(148,163,184,0.28)" stroke-width="4"/>
-  <!-- the N of Nx, drawn as a cache round-trip: down, across, up -->
-  <path d="M76 176V80l104 96V80" fill="none" stroke="url(#g)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- lightning tick: speed -->
-  <path d="M150 150l20-28h-14l6-22-22 30h14z" fill="#e0f2fe" opacity="0.95"/>
+  <!-- three cache layers, the hot one on top -->
+  <rect x="56" y="150" width="144" height="26" rx="13" fill="url(#g)" opacity="0.4"/>
+  <rect x="56" y="110" width="144" height="26" rx="13" fill="url(#g)" opacity="0.7"/>
+  <rect x="56" y="70" width="104" height="26" rx="13" fill="url(#g)"/>
+  <!-- lightning tick: a hit served from memory -->
+  <path d="M190 58l-26 40h18l-10 36 30-44h-18z" fill="#e0f2fe"/>
 </svg>

@@ -5,9 +5,10 @@
 <h1 align="center">nx-remote-cache</h1>
 
 <p align="center">
-  <b>A self-hosted Nx remote cache that is small, fast and boring to run.</b><br>
+  <b>A free, open-source, self-hosted remote cache for Nx that is small, fast and boring to run.</b><br>
   <i>One 4 MB static binary. Azure Blob, S3, GCS or local disk behind it. A dashboard in front of it.</i><br>
-  Implements the official <a href="https://nx.dev/docs/kb/self-hosted-caching">Nx self-hosted cache API</a>, byte for byte, with a conformance test that walks the published OpenAPI spec.
+  Implements the official <a href="https://nx.dev/docs/kb/self-hosted-caching">Nx self-hosted cache API</a>, byte for byte, with a conformance test that walks the published OpenAPI spec.<br>
+  <sub>An independent community project, not affiliated with or endorsed by Nx or Narwhal Technologies. Nx and Nx Cloud are their trademarks.</sub>
 </p>
 
 <table align="center">
@@ -20,7 +21,7 @@
   <tr>
     <td align="center" valign="top"><b>Built for the hot path</b><br><sub>Streaming in both directions, create-only writes, an in-memory tier for hot artifacts, sub-millisecond misses</sub></td>
     <td align="center" valign="top"><b>Any object store</b><br><sub>Azure Blob first (Workload Identity, SAS, key, Azurite), plus S3, GCS, local disk and memory, one URL to switch</sub></td>
-    <td align="center" valign="top"><b>Nx Cloud-style dashboard</b><br><sub>Hit rate, throughput, latency percentiles, retention, live events linked to the CI run that produced them</sub></td>
+    <td align="center" valign="top"><b>Built-in dashboard</b><br><sub>Hit rate, throughput, latency percentiles, retention, live events linked to the CI run that produced them</sub></td>
     <td align="center" valign="top"><b>Kubernetes-native</b><br><sub>Scratch image, non-root, health and readiness probes, Prometheus metrics, graceful drain, manifests included</sub></td>
   </tr>
 </table>

@@ -11,6 +11,7 @@ First release.
 - Dashboard (React) with live events, token login, retention and latency views.
 - Health, readiness, Prometheus metrics, JSON logs, graceful shutdown.
 - Docker image on `scratch` (~4 MB), Kubernetes manifests, GitHub Actions CI, comparative benchmark.
+- Branding: new logo, name and taglines say "free, self-hosted remote cache for Nx" with a trademark note, so the project is not mistaken for Nx or Nx Cloud.
 - `/v1/kv`: in-memory LRU key-value store with content types, JSON validation and per-key TTL.
 - Logging: `NX_CACHE_LOG_LEVEL`, `NX_CACHE_LOG_FORMAT` (`json`, `pretty`, `compact`), `NX_CACHE_ACCESS_LOG`.
 - Security headers (CSP, `nosniff`, `Referrer-Policy`, `X-Frame-Options`), SHA-pinned workflow

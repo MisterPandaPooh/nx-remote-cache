@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>nx-remote-cache</title>
-  <meta name="description" content="A self-hosted Nx remote cache: one 4 MB binary, Azure Blob / S3 / GCS behind it, a dashboard in front of it.">
+  <title>nx-remote-cache · free, self-hosted remote cache for Nx</title>
+  <meta name="description" content="nx-remote-cache: a free, open-source, self-hosted remote cache server for Nx. One 4 MB binary, Azure Blob / S3 / GCS / disk behind it, a dashboard in front of it. Not affiliated with Nx.">
   <link rel="icon" href="images/logo.svg">
   <style>
     :root {
@@ -30,7 +30,7 @@
     header { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
     .brand { display: flex; align-items: center; gap: 12px; font-weight: 600; letter-spacing: -.01em; }
     .brand img { width: 36px; height: 36px; }
-    .brand span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .brand small { display: block; font-size: 11px; font-weight: 500; color: var(--mute); letter-spacing: 0; }
     nav a { color: var(--dim); text-decoration: none; margin-left: 22px; font-size: 14px; }
     nav a:hover { color: var(--ink); }
     .hero { padding: 64px 0 36px; text-align: center; }
@@ -66,7 +66,7 @@
 <body>
   <div class="wrap">
     <header>
-      <div class="brand"><img src="images/logo.svg" alt=""><div><span>nx</span> remote cache</div></div>
+      <div class="brand"><img src="images/logo.svg" alt=""><div>nx-remote-cache<small>free · self-hosted · open source</small></div></div>
       <nav>
         <a href="#how">How it works</a>
         <a href="#bench">Benchmarks</a>
@@ -76,9 +76,9 @@
     </header>
 
     <section class="hero">
-      <span class="eyebrow"><i></i> Implements the official Nx self-hosted cache API · MIT</span>
-      <h1>Your Nx remote cache.<br><b>Small, fast, yours.</b></h1>
-      <p class="lead">One 4 MB static binary. Azure Blob, S3, GCS or local disk behind it. A live dashboard in front of it. Nothing to operate.</p>
+      <span class="eyebrow"><i></i> Independent open-source project · speaks the Nx self-hosted cache API · MIT</span>
+      <h1>A free, self-hosted remote cache for Nx.<br><b>Small, fast, yours.</b></h1>
+      <p class="lead">One 4 MB static binary. Azure Blob, S3, GCS or local disk behind it. A live dashboard in front of it. No subscription, no vendor, nothing to operate.</p>
       <div class="cta">
         <a class="btn primary" href="https://github.com/MisterPandaPooh/nx-remote-cache#quick-start">Quick start</a>
         <a class="btn" href="https://github.com/MisterPandaPooh/nx-remote-cache/pkgs/container/nx-remote-cache">ghcr.io image</a>
@@ -89,7 +89,7 @@
     <section class="grid" id="how">
       <div class="card"><div class="ic">⚡</div><h3>Built for the hot path</h3><p>Streaming in both directions, create-only writes, an in-memory tier for hot artifacts, sub-millisecond misses.</p></div>
       <div class="card"><div class="ic">☁️</div><h3>Any object store</h3><p>Azure Blob first, with Workload Identity. S3, GCS, local disk and memory behind the same URL switch.</p></div>
-      <div class="card"><div class="ic">📊</div><h3>Nx Cloud-style dashboard</h3><p>Hit rate, throughput, p50/p90/p99, retention, and a live feed that links every artifact to the CI run that produced it.</p></div>
+      <div class="card"><div class="ic">📊</div><h3>Built-in dashboard</h3><p>Hit rate, throughput, p50/p90/p99, retention, and a live feed that links every artifact to the CI run that produced it.</p></div>
       <div class="card"><div class="ic">🔒</div><h3>Kubernetes-native</h3><p>Scratch image, non-root, probes, Prometheus metrics, graceful drain, retention sweeper, manifests included.</p></div>
     </section>
 
@@ -114,7 +114,7 @@ export <span class="k">NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN</span>=…;run=$
     </table>
 
     <footer>
-      <div>nx-remote-cache · MIT · not affiliated with Nrwl or Nx Cloud</div>
+      <div>nx-remote-cache · MIT · an independent community project, not affiliated with or endorsed by Nx or Narwhal Technologies. Nx and Nx Cloud are their trademarks.</div>
       <div><a href="https://github.com/MisterPandaPooh/nx-remote-cache">GitHub</a> · <a href="https://nx.dev/docs/kb/self-hosted-caching">Nx spec</a></div>
     </footer>
   </div>

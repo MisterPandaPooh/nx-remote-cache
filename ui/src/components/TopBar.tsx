@@ -13,7 +13,10 @@ export function Logo() {
         </linearGradient>
       </defs>
       <rect x="0.5" y="0.5" width="33" height="33" rx="10" fill="#0b1120" stroke="rgb(148 163 184 / .25)" />
-      <path d="M10 24V10l14 14V10" fill="none" stroke="url(#logo-g)" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="7.5" y="20" width="19" height="3.4" rx="1.7" fill="url(#logo-g)" opacity="0.4" />
+      <rect x="7.5" y="14.7" width="19" height="3.4" rx="1.7" fill="url(#logo-g)" opacity="0.7" />
+      <rect x="7.5" y="9.4" width="13.5" height="3.4" rx="1.7" fill="url(#logo-g)" />
+      <path d="M25.2 7.6l-3.4 5.3h2.4l-1.3 4.8 4-5.8h-2.4z" fill="#e0f2fe" />
     </svg>
   )
 }
@@ -54,9 +57,9 @@ export function TopBar({ stats, mode, streaming, stale, hasToken, onDisconnect }
         <Logo />
         <div className="leading-tight">
           <div className="text-[1.05rem] font-semibold tracking-tight">
-            <span className="grad-text">nx</span> remote cache
+            nx-remote-cache
           </div>
-          <div className="text-[0.6875rem] text-mute">self-hosted build cache</div>
+          <div className="text-[0.6875rem] text-mute">free, self-hosted remote cache for Nx</div>
         </div>
       </div>
 
