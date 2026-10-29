@@ -1,5 +1,5 @@
 {{- include "nx-remote-cache.validateValues" . }}
-{{- $podLabels := include "common.tplvalues.merge" (dict "values" (list .Values.podLabels .Values.commonLabels) "context" .) }}
+{{- $podLabels := include "nx-remote-cache.podLabels" . }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
@@ -24,8 +24,9 @@ spec:
       labels: {{- include "common.labels.standard" (dict "customLabels" $podLabels "context" $) | nindent 8 }}
       annotations:
         {{- if and .Values.auth.enabled (not .Values.auth.existingSecret) }}
-        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/tokens: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- end }}
+        checksum/store: {{ include (print $.Template.BasePath "/secret-store.yaml") . | sha256sum }}
         {{- if .Values.podAnnotations }}
         {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
         {{- end }}
@@ -76,8 +77,7 @@ spec:
           env:
             - name: PORT
               value: "3000"
-            - name: NX_CACHE_STORE_URL
-              value: {{ .Values.storeUrl | quote }}
+            {{- include "nx-remote-cache.storeEnv" . | nindent 12 }}
             {{- if .Values.auth.enabled }}
             - name: NX_CACHE_TOKEN
               valueFrom:
@@ -91,13 +91,10 @@ spec:
                   key: {{ include "nx-remote-cache.readTokenKey" . }}
                   optional: true
             {{- else }}
-            - name: NX_CACHE_ALLOW_ANONYMOUS
-              value: "true"
+            - name: NX_CACHE_ENABLE_LOGIN
+              value: "false"
             {{- end }}
-            {{- range $name, $value := .Values.env }}
-            - name: {{ $name }}
-              value: {{ $value | quote }}
-            {{- end }}
+            {{- include "nx-remote-cache.serverEnv" . | nindent 12 }}
             {{- if .Values.extraEnvVars }}
             {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
             {{- end }}
@@ -145,9 +142,9 @@ spec:
               path: /healthz
               port: http
           {{- end }}
-          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts }}
+          {{- if or (eq .Values.store.type "filesystem") .Values.extraVolumeMounts }}
           volumeMounts:
-            {{- if .Values.persistence.enabled }}
+            {{- if eq .Values.store.type "filesystem" }}
             - name: data
               mountPath: {{ .Values.persistence.mountPath }}
             {{- end }}
@@ -158,9 +155,9 @@ spec:
         {{- if .Values.sidecars }}
         {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
         {{- end }}
-      {{- if or .Values.persistence.enabled .Values.extraVolumes }}
+      {{- if or (eq .Values.store.type "filesystem") .Values.extraVolumes }}
       volumes:
-        {{- if .Values.persistence.enabled }}
+        {{- if eq .Values.store.type "filesystem" }}
         - name: data
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim | default (include "common.names.fullname" .) }}

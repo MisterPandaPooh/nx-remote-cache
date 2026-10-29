@@ -12,14 +12,17 @@ with `auth.existingSecret`).
 ```bash
 helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cache --version 0.1.0 \
   --namespace nx-remote-cache --create-namespace \
-  --set storeUrl=az://nx-cache/ --set env.AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount \
-  --set 'podLabels.azure\.workload\.identity/use=true' \
-  --set 'serviceAccount.annotations.azure\.workload\.identity/client-id=<client id>' \
+  --set store.type=azure --set store.azure.accountName=mystorageaccount \
+  --set store.azure.workloadIdentity.clientId=<managed identity client id> \
   --set ingress.enabled=true --set ingress.hostname=nx-cache.example.com --set ingress.tls=true
 ```
 
-Images come from `ghcr.io/misterpandapooh/nx-remote-cache` by default; `--set image.registry=docker.io`
-switches to the Docker Hub mirror. The plain manifests below do the same without Helm.
+`store.type` picks the backend (`azure`, `s3`, `gcs`, `filesystem`, `memory`) and each one has its
+own `auth` (Workload Identity, managed identity, IRSA, keys, SAS ...); the chart derives the store
+URL, the credentials secret and the ServiceAccount annotations. `server.*` covers uploads, the
+memory tier, the key-value store, retention, dashboard and logging with typed values. Images come
+from `ghcr.io/misterpandapooh/nx-remote-cache` by default; `--set image.registry=docker.io` switches
+to the Docker Hub mirror. The plain manifests below do the same without Helm.
 
 ## Deploy on Kubernetes with Azure Blob
 

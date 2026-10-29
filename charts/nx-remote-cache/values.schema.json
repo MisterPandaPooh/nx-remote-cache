@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "nx-remote-cache values",
+  "type": "object",
+  "properties": {
+    "store": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["azure", "s3", "gcs", "filesystem", "memory"] },
+        "prefix": { "type": "string" },
+        "url": { "type": "string" },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 },
+        "connectTimeoutSeconds": { "type": "integer", "minimum": 1 },
+        "maxRetries": { "type": "integer", "minimum": 0 },
+        "azure": {
+          "type": "object",
+          "properties": {
+            "auth": { "enum": ["workloadIdentity", "managedIdentity", "accountKey", "sasToken", "servicePrincipal", "emulator"] },
+            "accountName": { "type": "string" },
+            "container": { "type": "string", "minLength": 1 }
+          }
+        },
+        "s3": {
+          "type": "object",
+          "properties": {
+            "auth": { "enum": ["irsa", "instanceProfile", "accessKey"] },
+            "bucket": { "type": "string" },
+            "region": { "type": "string" },
+            "allowHttp": { "type": "boolean" }
+          }
+        },
+        "gcs": {
+          "type": "object",
+          "properties": {
+            "auth": { "enum": ["workloadIdentity", "serviceAccountKey"] },
+            "bucket": { "type": "string" }
+          }
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "properties": { "enabled": { "type": "boolean" } }
+    },
+    "server": {
+      "type": "object",
+      "properties": {
+        "memoryTier": { "type": "object", "properties": { "enabled": { "type": "boolean" } } },
+        "kv": { "type": "object", "properties": { "enabled": { "type": "boolean" } } },
+        "dashboard": { "type": "object", "properties": { "enabled": { "type": "boolean" } } },
+        "logging": {
+          "type": "object",
+          "properties": {
+            "level": { "enum": ["error", "warn", "info", "debug", "trace", "off"] },
+            "format": { "enum": ["json", "pretty", "compact"] },
+            "accessLog": { "type": "boolean" }
+          }
+        },
+        "shutdownGraceSeconds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "replicaCount": { "type": "integer", "minimum": 0 },
+    "resourcesPreset": { "enum": ["none", "nano", "micro", "small", "medium", "large", "xlarge", "2xlarge"] }
+  }
+}

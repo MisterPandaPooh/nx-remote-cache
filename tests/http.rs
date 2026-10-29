@@ -397,6 +397,29 @@ async fn anonymous_cache_means_open_dashboard() {
 }
 
 #[tokio::test]
+async fn login_disabled_works_without_any_token() {
+    // NX_CACHE_ENABLE_LOGIN=false: no token for the cache, no login screen, even with a UI token set.
+    let mut cfg = Config::for_tests("memory:///");
+    cfg.login_enabled = false;
+    cfg.ui_token = Some("ignored".into());
+    let s = start(cfg).await;
+    let put = s
+        .client
+        .put(s.url("/v1/cache/open1"))
+        .body(b"z".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(put.status(), 200);
+    assert_eq!(
+        s.client.get(s.url("/v1/cache/open1")).send().await.unwrap().status(),
+        200
+    );
+    assert_eq!(s.client.get(s.url("/api/v1/stats")).send().await.unwrap().status(), 200);
+    assert_eq!(s.client.get(s.url("/")).send().await.unwrap().status(), 200);
+}
+
+#[tokio::test]
 async fn retention_sweep_is_reported_in_stats_and_metrics() {
     let mut cfg = Config::for_tests("memory:///");
     cfg.max_total_bytes = Some(2500);

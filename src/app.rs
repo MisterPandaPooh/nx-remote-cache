@@ -33,7 +33,11 @@ pub struct Inner {
 
 impl AppState {
     pub fn new(config: Config, store: CacheStore) -> Self {
-        let tokens = Tokens::new(&config.rw_tokens, &config.ro_tokens, config.allow_anonymous);
+        let tokens = Tokens::new(
+            &config.rw_tokens,
+            &config.ro_tokens,
+            config.allow_anonymous || !config.login_enabled,
+        );
         let put_permits = tokio::sync::Semaphore::new(config.max_concurrent_puts);
         let memcache = crate::memcache::MemCache::new(config.memory_cache_bytes, config.memory_cache_max_item);
         let kv = crate::kv::KvStore::new(config.kv_bytes, config.kv_max_value);

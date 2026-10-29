@@ -14,6 +14,8 @@ pub struct Config {
     /// Tokens allowed to read only; a PUT with one of these gets 403.
     pub ro_tokens: Vec<String>,
     pub allow_anonymous: bool,
+    /// `NX_CACHE_ENABLE_LOGIN=false`: no token anywhere, cache API and dashboard open.
+    pub login_enabled: bool,
     pub max_artifact_bytes: u64,
     /// Bodies up to this size are buffered and written with a single atomic create.
     pub inline_put_threshold: u64,
@@ -62,9 +64,10 @@ impl Config {
 
         let rw_tokens = env_list("NX_CACHE_TOKEN");
         let ro_tokens = env_list("NX_CACHE_READ_TOKEN");
-        let allow_anonymous = env_bool("NX_CACHE_ALLOW_ANONYMOUS", false)?;
+        let login_enabled = env_bool("NX_CACHE_ENABLE_LOGIN", true)?;
+        let allow_anonymous = env_bool("NX_CACHE_ALLOW_ANONYMOUS", false)? || !login_enabled;
         if rw_tokens.is_empty() && ro_tokens.is_empty() && !allow_anonymous {
-            bail!("no token configured: set NX_CACHE_TOKEN (and optionally NX_CACHE_READ_TOKEN), or NX_CACHE_ALLOW_ANONYMOUS=true to run open");
+            bail!("no token configured: set NX_CACHE_TOKEN (and optionally NX_CACHE_READ_TOKEN), or NX_CACHE_ENABLE_LOGIN=false to run open");
         }
 
         let max_artifact_bytes = env_size("NX_CACHE_MAX_ARTIFACT_BYTES", 4 << 30)?;
@@ -81,6 +84,7 @@ impl Config {
             rw_tokens,
             ro_tokens,
             allow_anonymous,
+            login_enabled,
             max_artifact_bytes,
             inline_put_threshold,
             multipart_chunk_bytes,
@@ -120,6 +124,7 @@ impl Config {
             rw_tokens: vec!["rw-token".into()],
             ro_tokens: vec!["ro-token".into()],
             allow_anonymous: false,
+            login_enabled: true,
             max_artifact_bytes: 64 << 20,
             inline_put_threshold: 1 << 20,
             multipart_chunk_bytes: 5 << 20,

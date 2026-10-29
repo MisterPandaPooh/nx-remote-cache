@@ -58,7 +58,7 @@ with a single backend. This one is written in Rust around three ideas:
 
 ```bash
 docker run --rm -p 3000:3000 \
-  -e NX_CACHE_STORE_URL=file:///data -e NX_CACHE_TOKEN=dev-token \
+  -e NX_CACHE_STORE_URL=file:///data -e NX_CACHE_ENABLE_LOGIN=false \
   --tmpfs /data:uid=65534,gid=65534 \
   ghcr.io/misterpandapooh/nx-remote-cache:latest
 ```
@@ -67,18 +67,21 @@ Point Nx (≥ 20.8) at it:
 
 ```bash
 export NX_SELF_HOSTED_REMOTE_CACHE_SERVER=http://localhost:3000
-export NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=dev-token
+export NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=anything   # Nx insists on a value
 nx run-many -t build
 ```
 
-Open <http://localhost:3000> and paste the token: that is the dashboard.
+Open <http://localhost:3000>: that is the dashboard, no login. For anything reachable from
+outside your machine, drop `NX_CACHE_ENABLE_LOGIN=false` and set `NX_CACHE_TOKEN` (and a
+read-only `NX_CACHE_READ_TOKEN` for pull requests); the same image also lives on Docker Hub.
 
 Production is one Helm install (chart built on Bitnami `common`, tokens generated for you):
 
 ```bash
 helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cache \
   --namespace nx-remote-cache --create-namespace \
-  --set storeUrl=az://nx-cache/ --set env.AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount \
+  --set store.type=azure --set store.azure.accountName=mystorageaccount \
+  --set store.azure.workloadIdentity.clientId=<managed identity client id> \
   --set ingress.enabled=true --set ingress.hostname=nx-cache.example.com --set ingress.tls=true
 ```
 

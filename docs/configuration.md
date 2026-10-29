@@ -49,7 +49,8 @@ into place, so a reader never sees a partial artifact.
 |---|---|---|
 | `NX_CACHE_TOKEN` | | Read-write bearer token(s), comma-separated. Use it on trusted branches. |
 | `NX_CACHE_READ_TOKEN` | | Read-only token(s), comma-separated: `GET` works, `PUT` answers 403. Use it on pull requests. |
-| `NX_CACHE_ALLOW_ANONYMOUS` | `false` | Accept requests without a token (local use only). The server refuses to start with no token and this off. |
+| `NX_CACHE_ENABLE_LOGIN` | `true` | `false` opens everything: the cache API accepts requests without a token and the dashboard shows no login screen, even if `NX_CACHE_UI_TOKEN` is set. Works out of the box; for private networks and trying it out. |
+| `NX_CACHE_ALLOW_ANONYMOUS` | `false` | Older knob: accept cache requests without a token while the dashboard keeps asking for `NX_CACHE_UI_TOKEN` if one is set. The server refuses to start with no token unless one of the two is set. |
 
 Tokens are compared in constant time. Generate them with `openssl rand -hex 32`. A client may
 append context after the token (`secret;run=123;repo=org/app;ref=main;actor=alice`, up to 8

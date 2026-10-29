@@ -11,6 +11,7 @@ First release.
 - Dashboard (React) with live events, token login, retention and latency views.
 - Health, readiness, Prometheus metrics, JSON logs, graceful shutdown.
 - Docker image on `scratch` (~4 MB), Kubernetes manifests, GitHub Actions CI, comparative benchmark.
+- `NX_CACHE_ENABLE_LOGIN=false`: works out of the box, no token for the cache API and no login screen.
 - Helm chart on the Bitnami `common` library, published as OCI on ghcr.io; images on ghcr.io and Docker Hub,
   signed with cosign, with SBOM and provenance; release workflow (`docs/release.md`).
 - Branding: new logo, name and taglines say "free, self-hosted remote cache for Nx" with a trademark note, so the project is not mistaken for Nx or Nx Cloud.

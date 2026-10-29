@@ -4,7 +4,11 @@ APP VERSION: {{ .Chart.AppVersion }}
 
 nx-remote-cache is rolling out as {{ include "common.names.fullname" . }} in namespace {{ include "common.names.namespace" . }}.
 
-Store: {{ .Values.storeUrl }}
+Store: {{ .Values.store.type }} ({{ include "nx-remote-cache.storeUrl" . }})
+{{- if eq .Values.store.type "azure" }}, auth {{ .Values.store.azure.auth }}{{ end }}
+{{- if eq .Values.store.type "s3" }}, auth {{ .Values.store.s3.auth }}{{ end }}
+{{- if eq .Values.store.type "gcs" }}, auth {{ .Values.store.gcs.auth }}{{ end }}
+Memory tier: {{ ternary .Values.server.memoryTier.size "off" .Values.server.memoryTier.enabled }} · KV store: {{ ternary .Values.server.kv.size "off" .Values.server.kv.enabled }} · Retention: {{ .Values.server.retention.ttl | default "no TTL" }}{{ if .Values.server.retention.maxTotalSize }}, cap {{ .Values.server.retention.maxTotalSize }}{{ end }}
 
 {{- if .Values.ingress.enabled }}
 
@@ -29,7 +33,10 @@ Point Nx at it:
   export NX_SELF_HOSTED_REMOTE_CACHE_SERVER=<the URL above>
   export NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=$NX_CACHE_TOKEN
 
-Open the URL in a browser and paste the token for the dashboard.
+{{- if .Values.server.dashboard.enabled }}
+
+Dashboard: open the URL in a browser and paste {{ if or .Values.server.dashboard.token .Values.server.dashboard.existingSecret }}the dashboard token{{ else }}a cache token{{ end }}.
+{{- end }}
 Docs: https://github.com/MisterPandaPooh/nx-remote-cache#readme
 
 {{- include "common.warnings.rollingTag" .Values.image }}

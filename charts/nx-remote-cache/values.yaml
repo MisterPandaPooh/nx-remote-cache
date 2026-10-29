@@ -1,28 +1,161 @@
-## Values for nx-remote-cache, in the Bitnami layout (the chart depends on bitnami/common).
-## Every server setting: https://github.com/MisterPandaPooh/nx-remote-cache/blob/main/docs/configuration.md
+## Values for nx-remote-cache. Built on bitnami/common, so the usual Bitnami knobs are here too
+## (global.imageRegistry, commonLabels, resourcesPreset, podAntiAffinityPreset, extraDeploy ...).
+## Server reference: https://github.com/MisterPandaPooh/nx-remote-cache/blob/main/docs/configuration.md
 
-## @section Global parameters
-global:
-  imageRegistry: ""
-  imagePullSecrets: []
+## @section Store: where artifacts live
+store:
+  ## azure | s3 | gcs | filesystem | memory
+  type: azure
+  ## Optional folder inside the container / bucket (artifacts become <prefix>/<hash>)
+  prefix: ""
+  ## Advanced: a full store URL (az://, s3://, gs://, file://, memory:///) that replaces the typed settings
+  ## below for the URL only; credentials still come from the matching block.
+  url: ""
+  ## Store client: per-request timeout, connect timeout, retries on transient errors
+  timeoutSeconds: 300
+  connectTimeoutSeconds: 5
+  maxRetries: 3
+
+  azure:
+    accountName: ""
+    container: nx-cache
+    ## workloadIdentity | managedIdentity | accountKey | sasToken | servicePrincipal | emulator
+    auth: workloadIdentity
+    ## AKS Workload Identity: the managed identity's client id. The chart annotates the ServiceAccount
+    ## and labels the pods; grant the identity "Storage Blob Data Contributor" on the container.
+    workloadIdentity:
+      clientId: ""
+    ## System- or user-assigned managed identity on the node (IMDS); clientId only for user-assigned.
+    managedIdentity:
+      clientId: ""
+    ## Static credentials. Prefer existingSecret; inline values are written into a chart-managed secret.
+    accountKey: ""
+    sasToken: ""
+    servicePrincipal:
+      clientId: ""
+      tenantId: ""
+      clientSecret: ""
+    ## Azurite, for development
+    emulator:
+      endpoint: http://azurite:10000/devstoreaccount1
+    ## Secret with AZURE_STORAGE_ACCOUNT_KEY, AZURE_STORAGE_SAS_TOKEN or AZURE_CLIENT_SECRET
+    existingSecret: ""
+
+  s3:
+    bucket: ""
+    region: ""
+    ## MinIO, Cloudflare R2, S3Mock ... (leave empty for AWS)
+    endpoint: ""
+    allowHttp: false
+    ## irsa | instanceProfile | accessKey
+    auth: irsa
+    ## EKS IRSA: the role to assume; the chart annotates the ServiceAccount.
+    irsa:
+      roleArn: ""
+    accessKeyId: ""
+    secretAccessKey: ""
+    sessionToken: ""
+    ## Secret with AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and optionally AWS_SESSION_TOKEN
+    existingSecret: ""
+
+  gcs:
+    bucket: ""
+    ## workloadIdentity | serviceAccountKey
+    auth: workloadIdentity
+    ## GKE Workload Identity: the Google service account bound to the Kubernetes one
+    workloadIdentity:
+      gcpServiceAccount: ""
+    ## Service account key, JSON
+    serviceAccountKey: ""
+    ## Secret with GOOGLE_SERVICE_ACCOUNT_KEY
+    existingSecret: ""
+
+  ## filesystem: a volume mounted at persistence.mountPath (persistence.enabled must be true)
+  ## memory: nothing to configure, artifacts vanish with the pod
+
+## @section Tokens
+auth:
+  ## false sets NX_CACHE_ENABLE_LOGIN=false: no token for the cache API, no login screen on the
+  ## dashboard, works out of the box. Private networks only.
+  enabled: true
+  ## Read-write token, used on trusted branches. Generated and kept across upgrades when empty.
+  token: ""
+  ## Read-only token for pull requests (PUT answers 403). Generated when empty.
+  readToken: ""
+  ## Your own secret instead; the two keys below name its entries.
+  existingSecret: ""
+  existingSecretTokenKey: NX_CACHE_TOKEN
+  existingSecretReadTokenKey: NX_CACHE_READ_TOKEN
+
+## @section Server settings
+server:
+  uploads:
+    ## Largest accepted artifact (413 above)
+    maxArtifactSize: 2GB
+    ## Up to this size an upload is one atomic create; above, a streamed multipart upload
+    inlineThreshold: 8MB
+    ## Multipart part size (at least 5MB) and parts in flight per upload
+    multipartChunkSize: 8MB
+    multipartConcurrency: 4
+    ## Uploads in flight per pod. Memory for uploads is bounded by
+    ## maxConcurrentPuts × max(inlineThreshold, multipartChunkSize × multipartConcurrency): 16 × 32 MB here.
+    maxConcurrentPuts: 16
+  ## Hot artifacts served from RAM, no store round trip
+  memoryTier:
+    enabled: true
+    size: 256MB
+    maxItemSize: 4MB
+  ## /v1/kv, the in-memory LRU key-value store for CI glue
+  kv:
+    enabled: true
+    size: 64MB
+    maxValueSize: 1MB
+  ## Built-in sweeper. Prefer a lifecycle policy on the bucket for TTLs of a day or more.
+  retention:
+    ## e.g. 30d; empty keeps artifacts forever
+    ttl: ""
+    ## e.g. 500GB; the oldest artifacts are deleted down to 90 % of it
+    maxTotalSize: ""
+    sweepInterval: 1h
+  dashboard:
+    enabled: true
+    ## Dedicated dashboard token; empty lets any cache token open the dashboard
+    token: ""
+    existingSecret: ""
+    existingSecretKey: NX_CACHE_UI_TOKEN
+    ## Header set by an SSO proxy (X-Auth-Request-Email): only expose the server through that proxy
+    trustedHeader: ""
+  logging:
+    ## error | warn | info | debug | trace | off
+    level: info
+    ## json | pretty | compact
+    format: json
+    ## One info line per request (otherwise requests log at debug, failures at warn)
+    accessLog: false
+    ## Fine-grained tracing filter (RUST_LOG), overrides level: "info,access=debug,object_store=trace"
+    filter: ""
+  ## Seconds in-flight requests may finish after SIGTERM
+  shutdownGraceSeconds: 20
+  ## Anything else, as NAME: value
+  extraEnv: {}
+
+## Extra env entries (valueFrom, secretKeyRef ...), templated
+extraEnvVars: []
+## ConfigMap and Secret whose keys become environment variables
+extraEnvVarsCM: ""
+extraEnvVarsSecret: ""
+
+## @section Persistence (store.type: filesystem)
+persistence:
+  enabled: false
+  existingClaim: ""
   storageClass: ""
-  compatibility:
-    openshift:
-      # auto / force / disabled: drop user ids that OpenShift's restricted SCC rejects
-      adaptSecurityContext: auto
+  accessModes: ["ReadWriteOnce"]
+  size: 50Gi
+  annotations: {}
+  mountPath: /data
 
-## @section Common parameters
-kubeVersion: ""
-nameOverride: ""
-fullnameOverride: ""
-namespaceOverride: ""
-commonLabels: {}
-commonAnnotations: {}
-clusterDomain: cluster.local
-## Extra objects to deploy, rendered as templates
-extraDeploy: []
-
-## @section Server parameters
+## @section Image
 image:
   registry: ghcr.io
   repository: misterpandapooh/nx-remote-cache
@@ -32,39 +165,7 @@ image:
   pullPolicy: IfNotPresent
   pullSecrets: []
 
-## Where artifacts live. Required.
-## az://<container>/<prefix>, s3://<bucket>/<prefix>, gs://<bucket>/<prefix>,
-## file:///data (set persistence.enabled: true) or memory:/// (demos).
-storeUrl: ""
-
-## Bearer tokens for the cache API and dashboard.
-auth:
-  enabled: true
-  ## Read-write token, used on trusted branches. Generated and kept across upgrades when empty.
-  token: ""
-  ## Read-only token for pull requests (PUT answers 403). Generated when empty.
-  readToken: ""
-  ## Use a secret you manage instead (recommended); the two keys below name its entries.
-  existingSecret: ""
-  existingSecretTokenKey: NX_CACHE_TOKEN
-  existingSecretReadTokenKey: NX_CACHE_READ_TOKEN
-
-## Plain environment variables: store credentials, limits, retention, logging.
-env:
-  NX_CACHE_MAX_ARTIFACT_BYTES: 2GB
-  ## Upload memory is bounded by MAX_CONCURRENT_PUTS × 32 MB with the default chunk settings:
-  ## 16 × 32 MB = 512 MB worst case, plus the 256 MB memory tier. Size resources accordingly.
-  NX_CACHE_MAX_CONCURRENT_PUTS: "16"
-  NX_CACHE_LOG_LEVEL: info
-  NX_CACHE_LOG_FORMAT: json
-  # AZURE_STORAGE_ACCOUNT_NAME: mystorageaccount
-  # AWS_REGION: eu-west-1
-## Extra env entries (valueFrom, secretKeyRef ...), templated
-extraEnvVars: []
-## ConfigMap and Secret whose keys become environment variables (cloud credentials, for example)
-extraEnvVarsCM: ""
-extraEnvVarsSecret: ""
-
+## @section Deployment
 replicaCount: 2
 updateStrategy:
   type: RollingUpdate
@@ -72,8 +173,6 @@ updateStrategy:
     maxUnavailable: 0
     maxSurge: 1
 revisionHistoryLimit: 3
-
-## Set azure.workload.identity/use: "true" for AKS Workload Identity
 podLabels: {}
 podAnnotations: {}
 podAffinityPreset: ""
@@ -112,8 +211,8 @@ containerSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
-## Bitnami resource preset (nano, micro, small, medium, large, xlarge, 2xlarge) or explicit resources.
-## 1 Gi of memory is a sensible limit with the env defaults above.
+## Bitnami preset (nano, micro, small, medium, large, xlarge, 2xlarge) or explicit resources.
+## With the upload defaults above, 1Gi of memory is a comfortable limit.
 resourcesPreset: "small"
 resources: {}
 #  requests: { cpu: 100m, memory: 64Mi }
@@ -148,16 +247,6 @@ extraVolumes: []
 extraVolumeMounts: []
 initContainers: []
 sidecars: []
-
-## @section Persistence (local-disk store: storeUrl: file:///data)
-persistence:
-  enabled: false
-  existingClaim: ""
-  storageClass: ""
-  accessModes: ["ReadWriteOnce"]
-  size: 50Gi
-  annotations: {}
-  mountPath: /data
 
 ## @section Traffic exposure
 service:
@@ -199,7 +288,7 @@ ingress:
   secrets: []
   extraRules: []
 
-## @section Other parameters
+## @section Other
 pdb:
   create: true
   minAvailable: 1
@@ -215,8 +304,7 @@ autoscaling:
 serviceAccount:
   create: true
   name: ""
-  ## AKS Workload Identity: azure.workload.identity/client-id: "<client id>"
-  ## EKS IRSA: eks.amazonaws.com/role-arn: "<role arn>"
+  ## Cloud identity annotations are added from store.* automatically; extra ones go here.
   annotations: {}
   automountServiceAccountToken: false
 
@@ -232,3 +320,20 @@ metrics:
     metricRelabelings: []
     honorLabels: false
     jobLabel: ""
+
+## @section Global and common parameters (Bitnami)
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  compatibility:
+    openshift:
+      adaptSecurityContext: auto
+kubeVersion: ""
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""
+commonLabels: {}
+commonAnnotations: {}
+clusterDomain: cluster.local
+extraDeploy: []

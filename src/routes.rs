@@ -446,7 +446,8 @@ pub struct TokenQuery {
 }
 
 /// Gate for the dashboard and its API. Accepts `NX_CACHE_UI_TOKEN` when set, or any cache
-/// token (read-write or read-only). Open only when the cache itself runs anonymous.
+/// token (read-write or read-only). Open when login is disabled, or when the cache runs
+/// anonymous and no dashboard token is set.
 pub async fn ui_guard(
     State(state): State<AppState>,
     Query(q): Query<TokenQuery>,
@@ -454,7 +455,7 @@ pub async fn ui_guard(
     next: Next,
 ) -> Response {
     let ui_token = state.config.ui_token.as_deref();
-    if ui_token.is_none() && state.config.allow_anonymous {
+    if !state.config.login_enabled || (ui_token.is_none() && state.config.allow_anonymous) {
         return next.run(req).await;
     }
     if let Some(name) = state.config.ui_trusted_header.as_deref() {
