@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Three stages: build the dashboard, build a static Rust binary, ship it on `scratch`.
 
-FROM node:24-alpine AS ui
+FROM node:25-alpine AS ui
 WORKDIR /ui
 RUN corepack enable
 COPY ui/package.json ui/pnpm-lock.yaml ./
