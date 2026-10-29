@@ -52,9 +52,11 @@ stores `key=value` pairs, scoped globally, per repository (`pipeline`) or per ru
     export-env: "true"    # KV_PREVIEW_URL for the next steps
 ```
 
-Secrets are masked: `kv-set-values` with `secret: "true"` masks the values in the job log and
-the server hides them in the dashboard, and `kv-get-values` masks any value the server marks as
-a secret before it prints or exports anything.
+Secrets are masked: `kv-set-values` with `secret: "true"` masks the values in the job log, the
+server serves them only to the read-write token and masks them in the dashboard, and
+`kv-get-values` masks any value the server marks as a secret before it prints or exports
+anything. A job holding the read-only token (a pull request) reads plain values but gets a 403
+on a secret, so store what a pull request must read without `secret`.
 
 ### Link artifacts to CI runs
 

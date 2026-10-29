@@ -149,7 +149,7 @@ Targets worth filtering: `access` (requests), `nx_remote_cache` (server), `objec
 | `PUT/GET/DELETE /v1/kv/{key}`, `GET /v1/kv` | cache token | In-memory key-value store. |
 | `GET /api/v1/stats`, `/api/v1/events`, `/api/v1/events/stream` | dashboard guard | Dashboard data and SSE feed. |
 | `GET /metrics` | none | Prometheus text format. |
-| `GET /healthz`, `/readyz` | none | Liveness; readiness (store reachable). |
+| `GET /healthz`, `/readyz` | none | Liveness; readiness (store reachable, not shutting down; an unreachable Redis is reported, not fatal). |
 | `GET /` | none | Dashboard shell and assets. |
 
 ## Client side (Nx)

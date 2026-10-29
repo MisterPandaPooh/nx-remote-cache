@@ -14,10 +14,13 @@ curl -H "Authorization: Bearer $TOKEN" "https://nx-cache.example.com/v1/kv?prefi
 curl -X DELETE -H "Authorization: Bearer $TOKEN" https://nx-cache.example.com/v1/kv/flags
 ```
 
-Three isolation levels: `?level=global` (default), `?level=pipeline` (one namespace per
-repository) and `?level=run` (one per CI run); the identifiers come from the token context the
-cache already receives (`;run=…;repo=…`). `?secret=true` masks a value in the dashboard until
-someone clicks reveal. The dashboard lists every key of every scope.
+Three scopes: `?level=global` (default), `?level=pipeline` (one namespace per repository) and
+`?level=run` (one per CI run); the identifiers come from the token context the cache already
+receives (`;run=…;repo=…`) or from `?pipeline=` / `?run=`. Scopes keep keys apart, they are not
+an access boundary: any token can name any scope. `?secret=true` marks a value: only the
+read-write token can read it back (the read-only token, the one pull requests hold, gets 403),
+and the dashboard masks it until someone holding the read-write token clicks reveal. The
+dashboard lists every key of every scope.
 
 Running several replicas? Set `NX_CACHE_KV_BACKEND=redis` and `NX_CACHE_KV_REDIS_URL`: keys live
 in your Redis (one round trip per operation, Redis' own expiry), visible to every pod. The

@@ -24,7 +24,12 @@ Only the latest release and `main` receive security fixes.
   token. It is limited to 8 pairs of printable ASCII (keys `[a-z0-9_]{1,16}`, values ≤ 96 bytes),
   stored as object metadata, escaped by React in the dashboard, and only ever turned into a
   link under `https://github.com/`.
-- **Dashboard API** (`/api/v1/*`) requires `NX_CACHE_UI_TOKEN` or a cache token. With
+- **Key-value store** (`/v1/kv`): same tokens as the cache. A value stored with `secret=true` is
+  served only to the read-write token, so a pull request holding the read-only token cannot read
+  what a trusted job stored. Scopes (`pipeline`, `run`) are namespaces chosen by the client, not
+  an access boundary.
+- **Dashboard API** (`/api/v1/*`) requires `NX_CACHE_UI_TOKEN` or a cache token (`?token=` is
+  accepted on the event stream only, where `EventSource` cannot send a header). With
   `NX_CACHE_UI_TRUSTED_HEADER` set, any request carrying that header is let in: the server must
   then be reachable only through the proxy that sets it, and the proxy must strip the header
   from incoming requests.

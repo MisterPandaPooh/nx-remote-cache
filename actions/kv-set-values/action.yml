@@ -2,7 +2,8 @@ name: nx-remote-cache kv-set-values
 description: >-
   Store one or more values in the key-value store of an nx-remote-cache server, scoped to the
   whole cache, to this repository or to this workflow run, with an optional TTL. Secrets are
-  masked in the job log and in the server's dashboard.
+  masked in the job log and in the server's dashboard, and only the read-write token can read
+  them back.
 author: MisterPandaPooh
 branding:
   icon: database
