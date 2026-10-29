@@ -204,6 +204,8 @@ memory:///
   value: {{ $v.memoryTier.maxItemSize | quote }}
 - name: NX_CACHE_KV_ENABLED
   value: {{ $v.kv.enabled | quote }}
+- name: NX_CACHE_KV_BACKEND
+  value: {{ $v.kv.backend | quote }}
 - name: NX_CACHE_KV_BYTES
   value: {{ $v.kv.size | quote }}
 - name: NX_CACHE_KV_MAX_VALUE

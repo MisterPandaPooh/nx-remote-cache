@@ -930,3 +930,83 @@ async fn kv_can_be_switched_off_and_github_links_too() {
     assert!(stats["ci"]["provider"].is_null());
     assert_eq!(stats["ci"]["url"], "https://ghe.example.com");
 }
+
+#[tokio::test]
+async fn kv_store_backend_is_shared_between_two_servers() {
+    // Two pods over the same file:// store: a key written on one is read on the other.
+    let dir = tempfile::tempdir().unwrap();
+    let url = format!("file://{}", dir.path().display());
+    let mut cfg = Config::for_tests(&url);
+    cfg.kv_backend = nx_remote_cache::config::KvBackend::Store;
+    let a = start(cfg.clone()).await;
+    let b = start(cfg).await;
+    let ctx = "rw-token;run=42;repo=org/app";
+    let res = a
+        .client
+        .put(a.url("/v1/kv/token?level=run&secret=true&ttl=1h"))
+        .bearer_auth(ctx)
+        .header("content-type", "text/plain")
+        .body("s3cr3t")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 204);
+    let seen = b
+        .client
+        .get(b.url("/v1/kv/token?level=run"))
+        .bearer_auth(ctx)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(seen.status(), 200);
+    assert_eq!(seen.headers().get("x-kv-secret").unwrap(), "true");
+    assert!(seen.headers().get("x-kv-expires-in").is_some());
+    assert_eq!(seen.text().await.unwrap(), "s3cr3t");
+    let all: serde_json::Value = serde_json::from_slice(
+        &b.client
+            .get(b.url("/api/v1/kv"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(all["backend"], "store");
+    assert_eq!(all["keys"].as_array().unwrap().len(), 1);
+    assert_eq!(all["keys"][0]["scope"], "42");
+    // Artifacts and keys do not mix: the cache sees no artifact and the key survives a sweep.
+    assert_eq!(
+        b.client
+            .get(b.url("/v1/cache/token"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    assert!(dir.path().join("kv/run/42/token").exists());
+    assert_eq!(
+        b.client
+            .delete(b.url("/v1/kv/token?level=run"))
+            .bearer_auth(ctx)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        204
+    );
+    assert_eq!(
+        a.client
+            .get(a.url("/v1/kv/token?level=run"))
+            .bearer_auth(ctx)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+}

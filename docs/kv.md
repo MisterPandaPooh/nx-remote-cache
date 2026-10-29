@@ -19,6 +19,10 @@ repository) and `?level=run` (one per CI run); the identifiers come from the tok
 cache already receives (`;run=…;repo=…`). `?secret=true` masks a value in the dashboard until
 someone clicks reveal. The dashboard lists every key of every scope.
 
-Budget `NX_CACHE_KV_BYTES` (64 MB, LRU eviction), `NX_CACHE_KV_ENABLED=false` to switch the store off, value cap `NX_CACHE_KV_MAX_VALUE` (1 MB),
+Running several replicas? Set `NX_CACHE_KV_BACKEND=store` (the chart's default): keys become
+small objects under `kv/` in the artifact store, visible to every pod and kept across restarts.
+The default `memory` backend keeps them in one process.
+
+Budget `NX_CACHE_KV_BYTES` (64 MB, LRU eviction of the memory backend), `NX_CACHE_KV_ENABLED=false` to switch the store off, value cap `NX_CACHE_KV_MAX_VALUE` (1 MB),
 keys `[A-Za-z0-9_.:@-]{1,200}`. The store lives in one process: with several replicas, pin
 `/v1/kv` to one of them at the ingress, or accept per-pod views. Full API: [`docs/api.md`](api.md).

@@ -86,13 +86,14 @@ first read. Artifacts are immutable, so a cached copy is never stale.
 | Variable | Default | Description |
 |---|---|---|
 | `NX_CACHE_KV_ENABLED` | `true` | `false` switches the key-value store off: its routes answer 404 and the dashboard says so. |
-| `NX_CACHE_KV_BYTES` | `64MB` | LRU budget of the in-memory key-value store. `0` also disables it. |
+| `NX_CACHE_KV_BACKEND` | `memory` | `memory`: an LRU in this process, fast, gone on restart, one view per pod. `store`: every key is a small object under `<prefix>/kv/` in the artifact store, shared by all replicas and kept across restarts, one store round trip per operation. Use `store` with more than one replica. |
+| `NX_CACHE_KV_BYTES` | `64MB` | LRU budget of the `memory` backend. `0` also disables the store. |
 | `NX_CACHE_KV_MAX_VALUE` | `1MB` | Largest value accepted (413 above). |
 
 Values keep the `Content-Type` they were stored with; JSON is validated. Per-key TTL with
 `?ttl=30s`, isolation with `?level=global|pipeline|run` (identifiers from the token context),
-`?secret=true` to mask a value in the dashboard. The store is per process; see
-[`api.md`](api.md#key-value-store).
+`?secret=true` to mask a value in the dashboard. With `NX_CACHE_KV_BACKEND=store` the keys are
+shared by every replica; see [`api.md`](api.md#key-value-store).
 
 ## CI integration
 

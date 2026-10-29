@@ -41,7 +41,13 @@ impl AppState {
         let put_permits = tokio::sync::Semaphore::new(config.max_concurrent_puts);
         let memcache = crate::memcache::MemCache::new(config.memory_cache_bytes, config.memory_cache_max_item);
         let kv_budget = if config.kv_enabled { config.kv_bytes } else { 0 };
-        let kv = crate::kv::KvStore::new(kv_budget, config.kv_max_value);
+        let kv = match config.kv_backend {
+            crate::config::KvBackend::Memory => crate::kv::KvStore::new(kv_budget, config.kv_max_value),
+            crate::config::KvBackend::Store => {
+                let (raw, prefix) = store.raw();
+                crate::kv::KvStore::with_store(kv_budget, config.kv_max_value, raw, prefix)
+            }
+        };
         Self(Arc::new(Inner {
             config,
             store,

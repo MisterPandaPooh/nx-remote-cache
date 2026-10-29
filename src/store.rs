@@ -180,6 +180,21 @@ impl CacheStore {
         self.prefix.clone().join(hash)
     }
 
+    /// The raw object store and the cache prefix, for the key-value store's `store` backend.
+    pub fn raw(&self) -> (Arc<dyn ObjectStore>, &StorePath) {
+        (self.inner.clone(), &self.prefix)
+    }
+
+    /// `<prefix>/kv/`: objects of the key-value store, which the sweeper leaves alone.
+    fn kv_root(&self) -> String {
+        let p = self.prefix.as_ref().trim_matches('/');
+        if p.is_empty() {
+            "kv/".to_owned()
+        } else {
+            format!("{p}/kv/")
+        }
+    }
+
     pub async fn exists(&self, hash: &str) -> Result<bool, StoreError> {
         if let Some(root) = &self.fs_root {
             return tokio::fs::try_exists(root.join(hash)).await.map_err(io_err);
@@ -490,9 +505,12 @@ impl CacheStore {
         let started = std::time::Instant::now();
         let now = chrono::Utc::now();
         let mut entries: Vec<(StorePath, u64, chrono::DateTime<chrono::Utc>)> = Vec::new();
+        let kv_root = self.kv_root();
         let mut list = self.inner.list(Some(&self.prefix));
         while let Some(meta) = list.try_next().await? {
-            if meta.location.filename().is_some_and(|f| f.starts_with('.')) {
+            if meta.location.filename().is_some_and(|f| f.starts_with('.'))
+                || meta.location.as_ref().starts_with(&kv_root)
+            {
                 continue;
             }
             entries.push((meta.location, meta.size, meta.last_modified));

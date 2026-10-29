@@ -12,6 +12,8 @@ First release.
 - Health, readiness, Prometheus metrics, JSON logs, graceful shutdown.
 - Docker image on `scratch` (~4 MB), Kubernetes manifests, GitHub Actions CI, comparative benchmark.
 - Benchmark against every open-source Nx cache server with a published image (seven servers, two arenas); honest notes on where the Go servers are ahead.
+- Key-value store `store` backend (`NX_CACHE_KV_BACKEND=store`): keys kept in the artifact store under
+  `kv/`, shared by every replica and kept across restarts; the chart defaults to it.
 - Key-value store: isolation levels (`global`, `pipeline`, `run`, identifiers from the token context),
   `?secret=true` values masked in the dashboard with a reveal button, a dashboard view of every key,
   `NX_CACHE_KV_ENABLED`.

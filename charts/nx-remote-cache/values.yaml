@@ -105,9 +105,12 @@ server:
     enabled: true
     size: 256MB
     maxItemSize: 4MB
-  ## /v1/kv, the in-memory LRU key-value store for CI glue (NX_CACHE_KV_ENABLED)
+  ## /v1/kv, the key-value store for CI glue (NX_CACHE_KV_ENABLED)
   kv:
     enabled: true
+    ## store: keys are objects under kv/ in the artifact store, shared by every replica (default here,
+    ## the chart runs several pods). memory: an LRU in each pod, fast, gone on restart.
+    backend: store
     size: 64MB
     maxValueSize: 1MB
   ## Built-in sweeper. Prefer a lifecycle policy on the bucket for TTLs of a day or more.

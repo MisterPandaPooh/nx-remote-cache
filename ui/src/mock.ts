@@ -89,7 +89,7 @@ export function createMockState(): Stats {
         duration_ms: 850,
       },
     },
-    kv: { enabled: true, items: 5, bytes: 1_840, budget_bytes: 64 * 1024 ** 2, max_value_bytes: 1024 ** 2 },
+    kv: { enabled: true, backend: 'store', items: 5, bytes: 1_840, budget_bytes: 64 * 1024 ** 2, max_value_bytes: 1024 ** 2 },
     ci: { provider: 'github', url: 'https://github.com' },
   }
 }

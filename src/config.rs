@@ -35,6 +35,8 @@ pub struct Config {
     /// Budget of the side key-value store (`/v1/kv`); 0 disables it.
     /// `NX_CACHE_KV_ENABLED`; with `false` the store is off whatever the budget says.
     pub kv_enabled: bool,
+    /// `NX_CACHE_KV_BACKEND`: `memory` (per pod) or `store` (objects under `<prefix>/kv/`, shared).
+    pub kv_backend: KvBackend,
     pub kv_bytes: u64,
     pub kv_max_value: u64,
     /// CI integration: links in the dashboard point at `github_url` (GitHub.com or an
@@ -102,6 +104,7 @@ impl Config {
             memory_cache_max_item: env_size("NX_CACHE_MEMORY_CACHE_MAX_ITEM", 4 << 20)?,
             max_concurrent_puts: env_parse::<usize>("NX_CACHE_MAX_CONCURRENT_PUTS", 64)?.max(1),
             kv_enabled: env_bool("NX_CACHE_KV_ENABLED", true)?,
+            kv_backend: KvBackend::from_env()?,
             kv_bytes: env_size("NX_CACHE_KV_BYTES", 64 << 20)?,
             kv_max_value: env_size("NX_CACHE_KV_MAX_VALUE", 1 << 20)?,
             github_enabled: env_bool("NX_CACHE_GITHUB_ENABLED", true)?,
@@ -149,6 +152,7 @@ impl Config {
             memory_cache_max_item: 1 << 20,
             max_concurrent_puts: 8,
             kv_enabled: true,
+            kv_backend: KvBackend::Memory,
             kv_bytes: 1 << 20,
             kv_max_value: 64 << 10,
             github_enabled: true,
@@ -164,6 +168,28 @@ impl Config {
             access_log: false,
             pod_name: "test".into(),
             shutdown_grace: Duration::from_secs(1),
+        }
+    }
+}
+
+/// Where the key-value store keeps its keys.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KvBackend {
+    Memory,
+    Store,
+}
+
+impl KvBackend {
+    pub fn from_env() -> Result<Self> {
+        match std::env::var("NX_CACHE_KV_BACKEND")
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "" | "memory" => Ok(KvBackend::Memory),
+            "store" => Ok(KvBackend::Store),
+            other => bail!("NX_CACHE_KV_BACKEND must be memory or store, got `{other}`"),
         }
     }
 }
