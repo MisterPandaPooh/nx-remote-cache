@@ -26,6 +26,12 @@ links every artifact to its run.
 
 Outputs `cache-hit`. Keys are immutable: put a content hash in them.
 
+Give pull-request builds the read-only token (`NX_CACHE_READ_TOKEN`): they restore but never
+save, so a pull request cannot plant an archive under a key a trusted branch will reuse. The
+read-write token stays on trusted branches, as in
+[`examples/github-actions/nx-ci.yml`](../examples/github-actions/nx-ci.yml). The same rule
+applies to `kv-set-values`.
+
 ## kv-set-values
 
 ```yaml
