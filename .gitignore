@@ -12,3 +12,6 @@
 #/target
 # pulled by `helm dependency update`
 /charts/*/charts/
+
+# local Claude Code settings and worktrees
+/.claude/
