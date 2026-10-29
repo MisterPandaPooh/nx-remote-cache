@@ -89,7 +89,7 @@ jobs:
           C=charts/nx-remote-cache
           helm template t $C --set store.type=memory --set replicaCount=1 > /dev/null
           helm template t $C --set store.azure.accountName=acct --set store.azure.workloadIdentity.clientId=cid \
-            --set auth.existingSecret=tokens --set server.dashboard.token=ui \
+            --set auth.existingSecret=tokens --set server.dashboard.existingSecret=dashboard \
             --set ingress.enabled=true --set ingress.hostname=nx.example.com --set ingress.tls=true \
             --set autoscaling.enabled=true --set metrics.serviceMonitor.enabled=true > /dev/null
           helm template t $C --set store.azure.accountName=acct --set store.azure.auth=accountKey --set store.azure.accountKey=k > /dev/null
@@ -98,10 +98,13 @@ jobs:
           helm template t $C --set store.type=s3 --set store.s3.bucket=b --set store.s3.region=eu-west-1 --set store.s3.irsa.roleArn=arn:aws:iam::1:role/x > /dev/null
           echo '{"type":"service_account"}' > sa.json
           helm template t $C --set store.type=gcs --set store.gcs.bucket=b --set store.gcs.auth=serviceAccountKey --set-file store.gcs.serviceAccountKey=sa.json > /dev/null
-          helm template t $C --set store.type=filesystem --set persistence.enabled=true --set auth.enabled=false \
+          helm template t $C --set store.type=filesystem --set persistence.enabled=true --set replicaCount=1 --set auth.enabled=false \
             --set server.kv.enabled=false --set server.memoryTier.enabled=false --set server.retention.ttl=30d --set resources.limits.memory=1Gi > /dev/null
-          # must refuse incomplete or unknown settings
-          for args in "--set store.type=filesystem" "--set store.type=azure" "--set store.type=s3 --set store.s3.bucket=b" "--set store.type=bogus" "--set store.type=memory"; do
+          helm template t $C --set store.type=filesystem --set persistence.enabled=true --set persistence.accessModes={ReadWriteMany} > /dev/null
+          # must refuse incomplete, unknown or contradictory settings
+          for args in "--set store.type=filesystem" "--set store.type=azure" "--set store.type=s3 --set store.s3.bucket=b" "--set store.type=bogus" "--set store.type=memory" \
+            "--set store.type=memory --set autoscaling.enabled=true" "--set store.type=filesystem --set persistence.enabled=true" \
+            "--set store.type=memory --set replicaCount=1 --set auth.existingSecret=tokens --set server.dashboard.token=ui"; do
             if helm template t $C $args > /dev/null 2>&1; then echo "expected a validation failure for: $args" >&2; exit 1; fi
           done
       - run: python3 scripts/release.py check "$(python3 scripts/release.py current)"

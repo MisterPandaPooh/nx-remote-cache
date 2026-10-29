@@ -78,9 +78,10 @@ auth:
   ## false sets NX_CACHE_ENABLE_LOGIN=false: no token for the cache API, no login screen on the
   ## dashboard, works out of the box. Private networks only.
   enabled: true
-  ## Read-write token, used on trusted branches. Generated and kept across upgrades when empty.
+  ## Read-write token, used on trusted branches. Generated and kept across upgrades when empty;
+  ## a value set here replaces the stored one on upgrade (rotation with --set).
   token: ""
-  ## Read-only token for pull requests (PUT answers 403). Generated when empty.
+  ## Read-only token for pull requests (PUT answers 403). Generated when empty, same rotation.
   readToken: ""
   ## Your own secret instead; the two keys below name its entries.
   existingSecret: ""
@@ -245,8 +246,9 @@ containerSecurityContext:
     type: RuntimeDefault
 
 ## Bitnami preset (nano, micro, small, medium, large, xlarge, 2xlarge) or explicit resources.
-## With the upload defaults above, 1Gi of memory is a comfortable limit.
-resourcesPreset: "small"
+## The defaults above can hold 16 × 32 MB of uploads + 256 MB memory tier + 64 MB of keys:
+## medium (1Gi requested, 1.5Gi limit) covers that; small (768Mi limit) can be OOM-killed under load.
+resourcesPreset: "medium"
 resources: {}
 #  requests: { cpu: 100m, memory: 64Mi }
 #  limits: { memory: 1Gi }

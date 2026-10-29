@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
         - name: oauth2-proxy
-          image: quay.io/oauth2-proxy/oauth2-proxy:v7.8.1
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.5
           args:
             - --provider=keycloak-oidc
             - --oidc-issuer-url=https://keycloak.example.com/realms/<realm>
@@ -40,7 +40,7 @@ spec:
             - --email-domain=*
             # - --allowed-group=/nx-cache-admins      # restrict to a Keycloak group
             - --upstream=http://nx-remote-cache.nx-remote-cache.svc/
-            - --skip-auth-route=^/v1/cache/            # Nx CLI traffic bypasses SSO
+            - --skip-auth-route=^/v1/                  # Nx CLI and /v1/kv traffic (bearer tokens) bypass SSO
             - --skip-auth-route=^/healthz,^/readyz,^/metrics
             - --set-xauthrequest=true                  # adds X-Auth-Request-Email for the server
             - --cookie-secure=true

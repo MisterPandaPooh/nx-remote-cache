@@ -38,6 +38,12 @@ Point Nx at it:
 Dashboard: open the URL in a browser and paste {{ if or .Values.server.dashboard.token .Values.server.dashboard.existingSecret }}the dashboard token{{ else }}a cache token{{ end }}.
 {{- end }}
 Docs: https://github.com/MisterPandaPooh/nx-remote-cache#readme
+{{- if and .Values.server.kv.enabled (eq .Values.server.kv.backend "memory") (not .Values.redis.enabled) (or (gt (int .Values.replicaCount) 1) .Values.autoscaling.enabled) }}
+
+WARNING: the key-value store (/v1/kv) uses the memory backend with several replicas: each pod
+has its own keys, a key stored through one pod is a 404 through another. Set redis.enabled=true
+(bundled Redis) or server.kv.backend=redis with server.kv.redis.url, or server.kv.enabled=false.
+{{- end }}
 
 {{- include "common.warnings.rollingTag" .Values.image }}
 {{- include "common.warnings.resources" (dict "sections" (list "") "context" $) }}
