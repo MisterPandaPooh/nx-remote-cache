@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=cargo-registry-${TARGETPLATFORM},target=/usr/local/car
 
 # Load generator, same static build, on alpine so the benchmark can `exec` into a long-lived
 # container (docker build --target bench -t nx-remote-cache:bench .)
-FROM alpine:3.21 AS bench
+FROM alpine:3.24 AS bench
 RUN apk add --no-cache ca-certificates
 COPY --from=build /nx-cache-bench /usr/local/bin/nx-cache-bench
 USER 65534:65534
