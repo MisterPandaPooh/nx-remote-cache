@@ -354,7 +354,16 @@ pub struct StatsResponse {
     latency_ms: Latencies,
     retention: Retention,
     memory_cache: crate::memcache::MemCacheStats,
+    kv: crate::kv::KvInfo,
+    ci: CiInfo,
     timeline: Vec<TimelinePoint>,
+}
+
+/// Which CI system the dashboard links to. Only GitHub (and GitHub Enterprise) so far.
+#[derive(Serialize)]
+struct CiInfo {
+    provider: Option<&'static str>,
+    url: String,
 }
 
 #[derive(Serialize)]
@@ -408,6 +417,11 @@ pub async fn stats(State(state): State<AppState>) -> Json<StatsResponse> {
             last_sweep: s.last_sweep(),
         },
         memory_cache: state.memcache.stats(),
+        kv: crate::kv::info(&state.kv),
+        ci: CiInfo {
+            provider: state.config.github_enabled.then_some("github"),
+            url: state.config.github_url.clone(),
+        },
         timeline: s.timeline(),
     })
 }

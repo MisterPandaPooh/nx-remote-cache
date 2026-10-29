@@ -202,8 +202,10 @@ memory:///
   value: {{ ternary ($v.memoryTier.size | toString) "0" $v.memoryTier.enabled | quote }}
 - name: NX_CACHE_MEMORY_CACHE_MAX_ITEM
   value: {{ $v.memoryTier.maxItemSize | quote }}
+- name: NX_CACHE_KV_ENABLED
+  value: {{ $v.kv.enabled | quote }}
 - name: NX_CACHE_KV_BYTES
-  value: {{ ternary ($v.kv.size | toString) "0" $v.kv.enabled | quote }}
+  value: {{ $v.kv.size | quote }}
 - name: NX_CACHE_KV_MAX_VALUE
   value: {{ $v.kv.maxValueSize | quote }}
 {{- if $v.retention.ttl }}
@@ -234,6 +236,12 @@ memory:///
 {{- if $v.dashboard.trustedHeader }}
 - name: NX_CACHE_UI_TRUSTED_HEADER
   value: {{ $v.dashboard.trustedHeader | quote }}
+{{- end }}
+- name: NX_CACHE_GITHUB_ENABLED
+  value: {{ $v.github.enabled | quote }}
+{{- if $v.github.url }}
+- name: NX_CACHE_GITHUB_URL
+  value: {{ $v.github.url | quote }}
 {{- end }}
 - name: NX_CACHE_LOG_LEVEL
   value: {{ $v.logging.level | quote }}

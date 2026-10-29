@@ -1,4 +1,4 @@
-import type { CacheEvent, EventKind, RunContext, Stats, TimelineBucket } from './api'
+import type { CacheEvent, EventKind, KvList, RunContext, Stats, TimelineBucket } from './api'
 
 // Small seeded PRNG so the mock timeline is stable between reloads.
 function mulberry32(seed: number) {
@@ -89,6 +89,25 @@ export function createMockState(): Stats {
         duration_ms: 850,
       },
     },
+    kv: { enabled: true, items: 5, bytes: 1_840, budget_bytes: 64 * 1024 ** 2, max_value_bytes: 1024 ** 2 },
+    ci: { provider: 'github', url: 'https://github.com' },
+  }
+}
+
+export function makeMockKvList(): KvList {
+  return {
+    enabled: true,
+    items: 5,
+    bytes: 1_840,
+    budget_bytes: 64 * 1024 ** 2,
+    max_value_bytes: 1024 ** 2,
+    keys: [
+      { level: 'global', key: 'flags', size: 28, content_type: 'application/json', secret: false },
+      { level: 'global', key: 'last-green:main', size: 12, content_type: 'text/plain', secret: false },
+      { level: 'pipeline', scope: 'acme/storefront', key: 'build-number', size: 4, content_type: 'application/json', secret: false, expires_in_secs: 6 * 86400 },
+      { level: 'run', scope: '9412876503', key: 'preview-token', size: 40, content_type: 'text/plain', secret: true, expires_in_secs: 3_200 },
+      { level: 'run', scope: '9412913764', key: 'bundle', size: 1_756, content_type: 'application/octet-stream', secret: false, expires_in_secs: 7_000 },
+    ],
   }
 }
 

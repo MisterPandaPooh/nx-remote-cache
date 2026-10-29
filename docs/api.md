@@ -79,10 +79,23 @@ bearer tokens as the cache (read-only tokens may only `GET`). Disabled with `NX_
 
 | Method and path | Request | Responses |
 |---|---|---|
-| `PUT /v1/kv/{key}[?ttl=30s]` | body = the value, `Content-Type` kept as is (default `application/octet-stream`); `application/json` bodies are validated | `204` stored · `400` bad key, bad TTL or invalid JSON · `401` · `403` read-only token · `413` above `NX_CACHE_KV_MAX_VALUE` |
-| `GET /v1/kv/{key}` | | `200` with the stored `Content-Type`, `Cache-Control: no-store`, `x-kv-expires-in: <seconds>` when a TTL is set · `404` unknown or expired |
-| `DELETE /v1/kv/{key}` | | `204` · `404` · `403` read-only token |
-| `GET /v1/kv[?prefix=p&limit=100]` | | `200 {"keys":[{"key","size","content_type","expires_in_secs"?}]}`, sorted, at most 1000 |
+| `PUT /v1/kv/{key}[?level=&ttl=30s&secret=true]` | body = the value, `Content-Type` kept as is (default `application/octet-stream`); `application/json` bodies are validated | `204` stored · `400` bad key, level, TTL or invalid JSON · `401` · `403` read-only token · `413` above `NX_CACHE_KV_MAX_VALUE` |
+| `GET /v1/kv/{key}[?level=]` | | `200` with the stored `Content-Type`, `Cache-Control: no-store`, `x-kv-expires-in: <seconds>` when a TTL is set, `x-kv-secret: true` for secrets · `404` unknown or expired |
+| `DELETE /v1/kv/{key}[?level=]` | | `204` · `404` · `403` read-only token |
+| `GET /v1/kv[?level=&prefix=p&limit=100]` | | `200 {"level","scope"?,"keys":[{"level","scope"?,"key","size","content_type","secret","expires_in_secs"?}]}`, sorted, at most 1000 |
+| `GET /api/v1/kv` | dashboard guard | every key of every scope with the fields above plus `enabled`, `items`, `bytes`, `budget_bytes`, `max_value_bytes`; no values |
+| `GET /api/v1/kv/value?level=&scope=&key=` | dashboard guard | one value, for the dashboard's reveal button |
+
+**Isolation levels.** `level=global` (default) is one namespace for everyone. `level=pipeline`
+gives each repository its own namespace, `level=run` each CI run: the identifier is read from
+the token context (`repo=` and `run=` after the token, the same context the dashboard uses) or
+from `?pipeline=` / `?run=`. A key never leaks across scopes: the same name in two runs is two
+keys. Pipeline and run identifiers match `[A-Za-z0-9_./:@-]{1,200}`.
+
+**Secrets.** `?secret=true` on the PUT marks the value: the dashboard shows it masked with a
+reveal button, `GET` adds `x-kv-secret: true`. The API itself returns the value to any valid
+token, so a read-only token is enough to read it: keep genuinely sensitive material in your
+CI's secret store and use this for things like short-lived tokens between jobs of one run.
 
 Keys match `[A-Za-z0-9_.:@-]{1,200}`. TTLs accept `45s`, `10m`, `12h`, `7d` or seconds. When the
 budget is exceeded the least recently read or written key is evicted first; expired keys go on

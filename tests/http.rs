@@ -757,3 +757,176 @@ async fn kv_store_roundtrip_types_ttl_and_auth() {
         .unwrap();
     assert!(metrics.contains("nx_cache_kv_items "));
 }
+
+#[tokio::test]
+async fn kv_scopes_secrets_and_dashboard() {
+    let s = start(Config::for_tests("memory:///")).await;
+    let ctx = "rw-token;run=42;repo=org/app";
+    let put = |path: &str, body: &'static str| {
+        s.client
+            .put(s.url(path))
+            .bearer_auth(ctx)
+            .header("content-type", "text/plain")
+            .body(body)
+    };
+    // The same key in three scopes; pipeline and run come from the token context.
+    assert_eq!(put("/v1/kv/k", "g").send().await.unwrap().status(), 204);
+    assert_eq!(put("/v1/kv/k?level=pipeline", "p").send().await.unwrap().status(), 204);
+    assert_eq!(
+        put("/v1/kv/k?level=run&secret=true", "r")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        204
+    );
+    let get = |path: &str, token: &'static str| s.client.get(s.url(path)).bearer_auth(token);
+    assert_eq!(get("/v1/kv/k", ctx).send().await.unwrap().text().await.unwrap(), "g");
+    assert_eq!(
+        get("/v1/kv/k?level=pipeline", ctx)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+        "p"
+    );
+    let run = get("/v1/kv/k?level=run", ctx).send().await.unwrap();
+    assert_eq!(run.headers().get("x-kv-secret").unwrap(), "true");
+    assert_eq!(run.text().await.unwrap(), "r");
+    // Another run or repo does not see them; explicit identifiers override the context.
+    assert_eq!(
+        get("/v1/kv/k?level=run", "rw-token;run=43")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    assert_eq!(
+        get("/v1/kv/k?level=run&run=42", "rw-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    assert_eq!(
+        get("/v1/kv/k?level=pipeline", "rw-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        400
+    );
+    assert_eq!(get("/v1/kv/k?level=team", ctx).send().await.unwrap().status(), 400);
+    // Scoped listing.
+    let list: serde_json::Value = serde_json::from_slice(
+        &get("/v1/kv?level=pipeline", ctx)
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(list["scope"], "org/app");
+    assert_eq!(list["keys"].as_array().unwrap().len(), 1);
+    // Dashboard: every scope with metadata, secrets flagged, values on demand.
+    let all: serde_json::Value = serde_json::from_slice(
+        &get("/api/v1/kv", "rw-token")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(all["enabled"], true);
+    assert_eq!(all["items"], 3);
+    let keys = all["keys"].as_array().unwrap();
+    assert_eq!(keys.len(), 3);
+    assert!(keys
+        .iter()
+        .any(|k| k["level"] == "run" && k["scope"] == "42" && k["secret"] == true));
+    let value = get("/api/v1/kv/value?level=run&scope=42&key=k", "rw-token")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(value.status(), 200);
+    assert_eq!(value.text().await.unwrap(), "r");
+    assert_eq!(
+        get("/api/v1/kv/value?level=global&key=nope", "rw-token")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    assert_eq!(s.client.get(s.url("/api/v1/kv")).send().await.unwrap().status(), 401);
+    // Stats expose the store and the CI integration.
+    let stats: serde_json::Value = serde_json::from_slice(
+        &get("/api/v1/stats", "rw-token")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(stats["kv"]["enabled"], true);
+    assert_eq!(stats["kv"]["items"], 3);
+    assert_eq!(stats["ci"]["provider"], "github");
+    assert_eq!(stats["ci"]["url"], "https://github.com");
+}
+
+#[tokio::test]
+async fn kv_can_be_switched_off_and_github_links_too() {
+    let mut cfg = Config::for_tests("memory:///");
+    cfg.kv_enabled = false;
+    cfg.github_enabled = false;
+    cfg.github_url = "https://ghe.example.com".into();
+    let s = start(cfg).await;
+    assert_eq!(
+        s.client
+            .put(s.url("/v1/kv/k"))
+            .bearer_auth("rw-token")
+            .body("x")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    let all: serde_json::Value = serde_json::from_slice(
+        &s.client
+            .get(s.url("/api/v1/kv"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(all["enabled"], false);
+    let stats: serde_json::Value = serde_json::from_slice(
+        &s.client
+            .get(s.url("/api/v1/stats"))
+            .bearer_auth("rw-token")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(stats["ci"]["provider"].is_null());
+    assert_eq!(stats["ci"]["url"], "https://ghe.example.com");
+}

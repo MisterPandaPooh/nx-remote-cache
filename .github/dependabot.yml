@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Wait a few days after a release before proposing it (supply-chain hygiene, and it keeps
+    # Dependabot clear of pnpm's release-age block).
+    cooldown:
+      default-days: 3
     groups:
       rust:
         patterns: ["*"]
@@ -11,6 +15,8 @@ updates:
     directory: /ui
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
     groups:
       dashboard:
         patterns: ["*"]
@@ -18,7 +24,17 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    groups:
+      base-images:
+        patterns: ["*"]
+    ignore:
+      # The dashboard builds on the current Node LTS; odd majors are not LTS.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]

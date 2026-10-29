@@ -105,7 +105,7 @@ server:
     enabled: true
     size: 256MB
     maxItemSize: 4MB
-  ## /v1/kv, the in-memory LRU key-value store for CI glue
+  ## /v1/kv, the in-memory LRU key-value store for CI glue (NX_CACHE_KV_ENABLED)
   kv:
     enabled: true
     size: 64MB
@@ -125,6 +125,11 @@ server:
     existingSecretKey: NX_CACHE_UI_TOKEN
     ## Header set by an SSO proxy (X-Auth-Request-Email): only expose the server through that proxy
     trustedHeader: ""
+  ## CI integration: run and repository context becomes links in the dashboard. GitHub only so far.
+  github:
+    enabled: true
+    ## GitHub Enterprise Server base URL, if not github.com
+    url: ""
   logging:
     ## error | warn | info | debug | trace | off
     level: info

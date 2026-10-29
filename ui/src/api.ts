@@ -80,6 +80,37 @@ export interface Retention {
   last_sweep: LastSweep | null
 }
 
+export type KvLevel = 'global' | 'pipeline' | 'run'
+
+export interface KvKey {
+  level: KvLevel
+  /** Pipeline or run identifier; absent at the global level. */
+  scope?: string
+  key: string
+  size: number
+  content_type: string
+  secret: boolean
+  expires_in_secs?: number
+}
+
+export interface KvInfo {
+  enabled: boolean
+  items: number
+  bytes: number
+  budget_bytes: number
+  max_value_bytes: number
+}
+
+export interface KvList extends KvInfo {
+  keys: KvKey[]
+}
+
+/** Which CI system run links point at. Only GitHub (or GitHub Enterprise) so far. */
+export interface CiInfo {
+  provider: 'github' | null
+  url: string
+}
+
 export interface Stats {
   version: string
   uptime_seconds: number
@@ -91,6 +122,8 @@ export interface Stats {
   timeline: TimelineBucket[]
   /** Absent on servers older than the retention feature. */
   retention?: Retention
+  kv?: KvInfo
+  ci?: CiInfo
 }
 
 export class UnauthorizedError extends Error {
@@ -115,6 +148,20 @@ export const fetchStats = (signal?: AbortSignal, token?: string) => getJson<Stat
 export async function fetchEvents(limit = 100, signal?: AbortSignal): Promise<CacheEvent[]> {
   const body = await getJson<{ events: CacheEvent[] }>(`/api/v1/events?limit=${limit}`, signal)
   return body.events
+}
+
+export const fetchKvList = (signal?: AbortSignal) => getJson<KvList>('/api/v1/kv', signal)
+
+/** One value, as text; the dashboard shows it only after a click. */
+export async function fetchKvValue(k: KvKey, signal?: AbortSignal): Promise<string> {
+  const token = getToken()
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  const q = new URLSearchParams({ level: k.level, scope: k.scope ?? '', key: k.key })
+  const res = await fetch(`/api/v1/kv/value?${q}`, { signal, headers })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.text()
 }
 
 /** EventSource cannot set headers, so the token travels as a query parameter. */

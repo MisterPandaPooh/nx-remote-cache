@@ -85,11 +85,23 @@ first read. Artifacts are immutable, so a cached copy is never stale.
 
 | Variable | Default | Description |
 |---|---|---|
-| `NX_CACHE_KV_BYTES` | `64MB` | LRU budget of the in-memory key-value store. `0` disables the routes (404). |
+| `NX_CACHE_KV_ENABLED` | `true` | `false` switches the key-value store off: its routes answer 404 and the dashboard says so. |
+| `NX_CACHE_KV_BYTES` | `64MB` | LRU budget of the in-memory key-value store. `0` also disables it. |
 | `NX_CACHE_KV_MAX_VALUE` | `1MB` | Largest value accepted (413 above). |
 
 Values keep the `Content-Type` they were stored with; JSON is validated. Per-key TTL with
-`?ttl=30s`. The store is per process; see [`api.md`](api.md#key-value-store).
+`?ttl=30s`, isolation with `?level=global|pipeline|run` (identifiers from the token context),
+`?secret=true` to mask a value in the dashboard. The store is per process; see
+[`api.md`](api.md#key-value-store).
+
+## CI integration
+
+| Variable | Default | Description |
+|---|---|---|
+| `NX_CACHE_GITHUB_ENABLED` | `true` | Turn the run and repository context (`;run=…;repo=…` after the token) into GitHub links in the dashboard. `false` keeps the context but shows no links. |
+| `NX_CACHE_GITHUB_URL` | `https://github.com` | Base URL for those links: set it for GitHub Enterprise Server. |
+
+GitHub is the only CI provider integrated so far; others will come with their own variables.
 
 ## Retention
 

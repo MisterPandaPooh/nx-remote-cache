@@ -40,7 +40,8 @@ impl AppState {
         );
         let put_permits = tokio::sync::Semaphore::new(config.max_concurrent_puts);
         let memcache = crate::memcache::MemCache::new(config.memory_cache_bytes, config.memory_cache_max_item);
-        let kv = crate::kv::KvStore::new(config.kv_bytes, config.kv_max_value);
+        let kv_budget = if config.kv_enabled { config.kv_bytes } else { 0 };
+        let kv = crate::kv::KvStore::new(kv_budget, config.kv_max_value);
         Self(Arc::new(Inner {
             config,
             store,
@@ -104,6 +105,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/stats", get(routes::stats))
         .route("/api/v1/events", get(routes::events))
         .route("/api/v1/events/stream", get(routes::events_stream))
+        .route("/api/v1/kv", get(kv::dashboard_list))
+        .route("/api/v1/kv/value", get(kv::dashboard_value))
         .route_layer(middleware::from_fn_with_state(state.clone(), routes::ui_guard));
 
     let mut app = Router::new()

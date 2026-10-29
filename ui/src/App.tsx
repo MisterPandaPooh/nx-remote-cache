@@ -4,6 +4,7 @@ import { ConnectCard } from './components/ConnectCard'
 import { EventsTable } from './components/EventsTable'
 import { Footer } from './components/Footer'
 import { HeroStats } from './components/HeroStats'
+import { KvCard } from './components/KvCard'
 import { LatencyCard } from './components/LatencyCard'
 import { RetentionCard } from './components/RetentionCard'
 import { TopBar } from './components/TopBar'
@@ -26,7 +27,8 @@ export default function App() {
             <div className="min-w-0 xl:col-span-8"><ActivityChart stats={stats} /></div>
             <div className="min-w-0 xl:col-span-4"><LatencyCard stats={stats} /></div>
           </div>
-          <EventsTable events={events} now={now} streaming={streaming} />
+          <EventsTable events={events} now={now} streaming={streaming} ci={stats.ci} />
+          <KvCard kv={stats.kv} mode={mode} />
           <div className="grid gap-4 lg:gap-5 xl:grid-cols-12">
             {stats.retention && (
               <div className="min-w-0 xl:col-span-4"><RetentionCard retention={stats.retention} /></div>

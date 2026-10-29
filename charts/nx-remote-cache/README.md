@@ -41,7 +41,8 @@ naming the value.
 | `auth.existingSecret` | `""` | Your own secret; `auth.existingSecretTokenKey` / `auth.existingSecretReadTokenKey` name its entries. |
 | `server.uploads.*` | 2GB max, 8MB inline, 8MB × 4 multipart, 16 in flight | Upload limits; memory for uploads is bounded by `maxConcurrentPuts × max(inlineThreshold, multipartChunkSize × multipartConcurrency)`. |
 | `server.memoryTier.*` | on, 256MB, 4MB per item | Hot artifacts served from RAM. |
-| `server.kv.*` | on, 64MB, 1MB per value | The `/v1/kv` key-value store. |
+| `server.kv.*` | on, 64MB, 1MB per value | The `/v1/kv` key-value store (`enabled` sets `NX_CACHE_KV_ENABLED`). |
+| `server.github.*` | on, github.com | Run and repository context shown as GitHub links in the dashboard; `url` for GitHub Enterprise. GitHub is the only CI integration so far. |
 | `server.retention.*` | off | `ttl` (`30d`), `maxTotalSize` (`500GB`), `sweepInterval` (`1h`). |
 | `server.dashboard.*` | on | `token` or `existingSecret`/`existingSecretKey` for a dedicated dashboard token, `trustedHeader` for an SSO proxy. |
 | `server.logging.*` | `info`, `json` | `level`, `format` (`json`, `pretty`, `compact`), `accessLog`, `filter` (`RUST_LOG`). |

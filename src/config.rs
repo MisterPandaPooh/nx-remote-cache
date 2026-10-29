@@ -33,8 +33,14 @@ pub struct Config {
     pub max_concurrent_puts: usize,
     /// Delete artifacts older than this (by store modification time). `None` keeps them forever.
     /// Budget of the side key-value store (`/v1/kv`); 0 disables it.
+    /// `NX_CACHE_KV_ENABLED`; with `false` the store is off whatever the budget says.
+    pub kv_enabled: bool,
     pub kv_bytes: u64,
     pub kv_max_value: u64,
+    /// CI integration: links in the dashboard point at `github_url` (GitHub.com or an
+    /// Enterprise instance). GitHub is the only provider so far.
+    pub github_enabled: bool,
+    pub github_url: String,
     pub ttl: Option<Duration>,
     /// When the prefix holds more than this many bytes, delete the oldest artifacts down to 90 %.
     pub max_total_bytes: Option<u64>,
@@ -95,8 +101,15 @@ impl Config {
             memory_cache_bytes: env_size("NX_CACHE_MEMORY_CACHE_BYTES", 256 << 20)?,
             memory_cache_max_item: env_size("NX_CACHE_MEMORY_CACHE_MAX_ITEM", 4 << 20)?,
             max_concurrent_puts: env_parse::<usize>("NX_CACHE_MAX_CONCURRENT_PUTS", 64)?.max(1),
+            kv_enabled: env_bool("NX_CACHE_KV_ENABLED", true)?,
             kv_bytes: env_size("NX_CACHE_KV_BYTES", 64 << 20)?,
             kv_max_value: env_size("NX_CACHE_KV_MAX_VALUE", 1 << 20)?,
+            github_enabled: env_bool("NX_CACHE_GITHUB_ENABLED", true)?,
+            github_url: std::env::var("NX_CACHE_GITHUB_URL")
+                .ok()
+                .map(|u| u.trim().trim_end_matches('/').to_owned())
+                .filter(|u| !u.is_empty())
+                .unwrap_or_else(|| "https://github.com".to_owned()),
             ttl: env_duration("NX_CACHE_TTL")?,
             max_total_bytes: match std::env::var("NX_CACHE_MAX_TOTAL_BYTES") {
                 Ok(v) if !v.trim().is_empty() => Some(env_size("NX_CACHE_MAX_TOTAL_BYTES", 0)?),
@@ -135,8 +148,11 @@ impl Config {
             memory_cache_bytes: 8 << 20,
             memory_cache_max_item: 1 << 20,
             max_concurrent_puts: 8,
+            kv_enabled: true,
             kv_bytes: 1 << 20,
             kv_max_value: 64 << 10,
+            github_enabled: true,
+            github_url: "https://github.com".to_owned(),
             ttl: None,
             max_total_bytes: None,
             sweep_interval: Duration::from_secs(3600),

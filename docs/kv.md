@@ -14,6 +14,11 @@ curl -H "Authorization: Bearer $TOKEN" "https://nx-cache.example.com/v1/kv?prefi
 curl -X DELETE -H "Authorization: Bearer $TOKEN" https://nx-cache.example.com/v1/kv/flags
 ```
 
-Budget `NX_CACHE_KV_BYTES` (64 MB, LRU eviction), value cap `NX_CACHE_KV_MAX_VALUE` (1 MB),
+Three isolation levels: `?level=global` (default), `?level=pipeline` (one namespace per
+repository) and `?level=run` (one per CI run); the identifiers come from the token context the
+cache already receives (`;run=…;repo=…`). `?secret=true` masks a value in the dashboard until
+someone clicks reveal. The dashboard lists every key of every scope.
+
+Budget `NX_CACHE_KV_BYTES` (64 MB, LRU eviction), `NX_CACHE_KV_ENABLED=false` to switch the store off, value cap `NX_CACHE_KV_MAX_VALUE` (1 MB),
 keys `[A-Za-z0-9_.:@-]{1,200}`. The store lives in one process: with several replicas, pin
 `/v1/kv` to one of them at the ingress, or accept per-pod views. Full API: [`docs/api.md`](api.md).

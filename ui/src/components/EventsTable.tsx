@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import type { EventKind, RunContext } from '../api'
+import type { CiInfo, EventKind, RunContext } from '../api'
 import { formatBytes, formatMs, relativeTime, shortHash } from '../format'
 import { MAX_EVENTS, useCopy, type UiEvent } from '../hooks'
 import { Card, CardHeader } from './Card'
@@ -49,14 +49,15 @@ function HashCell({ hash }: { hash: string }) {
 const SAFE_REPO = /^[\w.-]+\/[\w.-]+$/
 const SAFE_RUN = /^\d+$/
 
-/** Link only when both parts look like a GitHub repo and a numeric run id. */
-function runUrl(c: RunContext | undefined): string | null {
+/** Link only with the GitHub integration on and when both parts look like a repo and a numeric run id. */
+function runUrl(c: RunContext | undefined, ci: CiInfo | undefined): string | null {
+  if (ci?.provider !== 'github') return null
   if (!c?.repo || !c.run || !SAFE_REPO.test(c.repo) || !SAFE_RUN.test(c.run)) return null
-  return `https://github.com/${c.repo}/actions/runs/${c.run}`
+  return `${ci.url}/${c.repo}/actions/runs/${c.run}`
 }
 
-function RunChip({ c }: { c: RunContext }) {
-  const url = runUrl(c)
+function RunChip({ c, ci }: { c: RunContext; ci?: CiInfo }) {
+  const url = runUrl(c, ci)
   const title = [c.actor && `by ${c.actor}`, c.repo, c.sha && `@ ${c.sha.slice(0, 7)}`].filter(Boolean).join(' · ') || undefined
   const body = (
     <>
@@ -74,11 +75,11 @@ function RunChip({ c }: { c: RunContext }) {
   )
 }
 
-function RunCell({ e }: { e: UiEvent }) {
+function RunCell({ e, ci }: { e: UiEvent; ci?: CiInfo }) {
   const { ctx, origin } = e
   const reused = e.kind === 'hit' && origin?.run && origin.run !== ctx?.run
   if (!ctx?.run && !reused) return <span className="text-mute">—</span>
-  const from = reused && origin ? runUrl(origin) : null
+  const from = reused && origin ? runUrl(origin, ci) : null
   const hint = reused && origin && (
     <span className="text-[0.6875rem] text-mute" title={[origin.repo, origin.ref, origin.actor && `by ${origin.actor}`].filter(Boolean).join(' · ') || undefined}>
       from{' '}
@@ -91,7 +92,7 @@ function RunCell({ e }: { e: UiEvent }) {
   )
   return (
     <span className="flex items-center gap-2 whitespace-nowrap">
-      {ctx?.run ? <RunChip c={ctx} /> : <span className="text-mute">—</span>}
+      {ctx?.run ? <RunChip c={ctx} ci={ci} /> : <span className="text-mute">—</span>}
       {hint}
     </span>
   )
@@ -99,7 +100,7 @@ function RunCell({ e }: { e: UiEvent }) {
 
 const statusColor = (s: number) => (s >= 500 ? 'text-bad' : s >= 400 ? 'text-miss' : 'text-dim')
 
-const Row = memo(function Row({ e, now }: { e: UiEvent; now: number }) {
+const Row = memo(function Row({ e, now, ci }: { e: UiEvent; now: number; ci?: CiInfo }) {
   return (
     <tr className={`border-t border-line/60 transition-colors hover:bg-white/[0.025] ${e.fresh ? 'row-new' : ''}`}>
       <td className="whitespace-nowrap py-2 pl-5 pr-3 text-xs text-dim" title={new Date(e.ts).toLocaleString()}>
@@ -107,7 +108,7 @@ const Row = memo(function Row({ e, now }: { e: UiEvent; now: number }) {
       </td>
       <td className="px-3 py-2"><KindChip kind={e.kind} /></td>
       <td className="px-3 py-2"><HashCell hash={e.hash} /></td>
-      <td className="px-3 py-2"><RunCell e={e} /></td>
+      <td className="px-3 py-2"><RunCell e={e} ci={ci} /></td>
       <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-dim">{e.bytes ? formatBytes(e.bytes) : '—'}</td>
       <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-dim">{formatMs(e.ms)}</td>
       <td className={`whitespace-nowrap py-2 pl-3 pr-5 text-right font-mono text-xs ${statusColor(e.status)}`}>{e.status}</td>
@@ -115,7 +116,7 @@ const Row = memo(function Row({ e, now }: { e: UiEvent; now: number }) {
   )
 })
 
-export function EventsTable({ events, now, streaming }: { events: UiEvent[]; now: number; streaming: boolean }) {
+export function EventsTable({ events, now, streaming, ci }: { events: UiEvent[]; now: number; streaming: boolean; ci?: CiInfo }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all')
   const rows = useMemo(() => {
     const f = FILTERS.find((x) => x.id === filter)!
@@ -168,7 +169,7 @@ export function EventsTable({ events, now, streaming }: { events: UiEvent[]; now
             </tr>
           </thead>
           <tbody>
-            {rows.map((e) => <Row key={e.id} e={e} now={now} />)}
+            {rows.map((e) => <Row key={e.id} e={e} now={now} ci={ci} />)}
           </tbody>
         </table>
         {rows.length === 0 && (

@@ -50,7 +50,8 @@
   Prometheus metrics, liveness and readiness probes, graceful drain, PDB, HPA.
 - **Bounded by design.** Memory for uploads is a formula you set, never "whatever the body is".
   A 2 GB artifact costs the same RAM as a 2 KB one.
-- **A little extra.** `/v1/kv`, a small key-value store for CI glue (flags, last green commit),
+- **A little extra.** `/v1/kv`, a small key-value store for CI glue (flags, last green commit,
+  a token for the next job), isolated per run or per repository, secrets masked in the dashboard;
   and a composite action that caches any path like `actions/cache`, against your own server.
 
 ## Benchmark
