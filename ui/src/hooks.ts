@@ -32,7 +32,10 @@ export interface Dashboard {
   disconnect: () => void
 }
 
-const forcedMock = new URLSearchParams(window.location.search).get('mock') === '1'
+// Generated data exists for `pnpm dev` only: a production build never shows invented numbers
+// to an operator whose server is down.
+const devBuild = import.meta.env.DEV
+const forcedMock = devBuild && new URLSearchParams(window.location.search).get('mock') === '1'
 let nextId = 1
 const decorate = (e: CacheEvent, fresh: boolean): UiEvent => ({ ...e, id: nextId++, fresh })
 
@@ -52,7 +55,7 @@ export function useDashboard(): Dashboard {
   }, [])
 
   // Poll /stats every 10 s. 401 shows the connect screen (never mock); any other failure
-  // before real data falls back to mock mode while polling continues.
+  // before real data shows "unreachable" (mock in dev builds) while polling continues.
   useEffect(() => {
     if (forcedMock) return
     const ctrl = new AbortController()
@@ -77,7 +80,7 @@ export function useDashboard(): Dashboard {
           setMode('auth')
           return
         }
-        setMode((m) => (m === 'live' ? 'live' : 'mock'))
+        setMode((m) => (m === 'live' || !devBuild ? m : 'mock'))
         setStale(true)
       }
     }

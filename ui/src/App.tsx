@@ -37,7 +37,9 @@ export default function App() {
           </div>
         </main>
       ) : (
-        <main className="grid flex-1 place-items-center text-sm text-mute">Loading stats…</main>
+        <main className="grid flex-1 place-items-center text-sm text-mute">
+          {stale ? 'Server unreachable. Retrying every 10 s.' : 'Loading stats…'}
+        </main>
       )}
 
       <Footer version={stats?.version} />
