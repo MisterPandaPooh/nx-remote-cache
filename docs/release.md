@@ -55,6 +55,9 @@ and the OIDC token cosign signs with (`id-token: write`).
   not at repository level, so no other workflow can read them. Add required reviewers to that
   environment and every release waits for a human click.
 - Every job declares the least permissions it needs; the workflow default is none.
+- Each platform is built natively (amd64 on `ubuntu-latest`, arm64 on `ubuntu-24.04-arm`) and
+  pushed by digest; one job then creates the multi-arch tags, so no emulation and no shared
+  build cache between platforms.
 - Every action is pinned to a commit SHA, with the version in a comment; Dependabot proposes
   updates.
 - Images and chart are signed keylessly: there is no signing key to leak or rotate, and the
