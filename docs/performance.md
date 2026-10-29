@@ -22,6 +22,8 @@ local disk. Full tables, method and how to rerun: [`bench/RESULTS.md`](../bench/
 
 <p align="center"><img src="../images/benchmark.svg" width="920" alt="Benchmark: requests per second per server, per artifact size"></p>
 
+**Reading the rows.** `this project` is nx-remote-cache. *Memory tier off* means every hit is fetched from the store, the same path every other server takes; *memory tier on* means hot artifacts up to 4 MB are served from RAM (`NX_CACHE_MEMORY_CACHE_BYTES`, 256 MB by default) with no store round trip, which only this project offers. Both rows upload through the same path.
+
 <!-- BENCH:START -->
 **4 KB artifacts** · PUT req/s · GET hit req/s (MB/s) · GET miss p50 / p99
 

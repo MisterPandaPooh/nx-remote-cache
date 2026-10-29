@@ -17,14 +17,14 @@ for size, body in zip(*[iter(re.split(r"^## Artifact size: (\d+) bytes$", result
 
 ARENAS = [
     ("Object storage (same S3 bucket)", [
-        ("nx-remote-cache (Rust) on S3, memory tier on", "nx-remote-cache, memory tier", "#38bdf8"),
-        ("nx-remote-cache (Rust) on S3, memory tier off", "nx-remote-cache, store only", "#6366f1"),
+        ("nx-remote-cache (Rust) on S3, memory tier on", "this project, memory tier on", "#38bdf8"),
+        ("nx-remote-cache (Rust) on S3, memory tier off", "this project, memory tier off", "#6366f1"),
         ("the-inconvenience-store/nx-remote-cache (Go) on S3", "inconvenience-store (Go)", "#10b981"),
         ("IKatsuba/nx-cache-server (Deno) on S3", "IKatsuba (Deno)", "#64748b"),
         ("rerodrigues/cacheiro (Node) on S3", "cacheiro (Node)", "#ec4899"),
     ]),
     ("Local disk (same RAM-backed tmpfs)", [
-        ("nx-remote-cache (Rust) on local disk", "nx-remote-cache", "#38bdf8"),
+        ("nx-remote-cache (Rust) on local disk", "this project (Rust)", "#38bdf8"),
         ("ShadiBlitz/nx-cache-server (Rust) on local disk", "ShadiBlitz (Rust)", "#f59e0b"),
         ("enxtur/nx-caching-server (Go) on local disk", "enxtur (Go)", "#10b981"),
         ("rerodrigues/cacheiro (Node) on local disk", "cacheiro (Node)", "#ec4899"),
@@ -42,7 +42,7 @@ def fmt(n):
 
 W, PAD, COL_GAP = 1100, 28, 36
 col_w = (W - 2 * PAD - COL_GAP) // 2
-label_w, value_w, bar_h, row_gap = 178, 165, 14, 6
+label_w, value_w, bar_h, row_gap = 200, 143, 14, 6
 bar_w = col_w - label_w - value_w
 svg = []
 y = PAD
@@ -87,8 +87,10 @@ for size in SIZES:
         panel_bottom = max(panel_bottom, yy)
     y = panel_bottom + 10
 
-text(PAD, y + 8, "Memory-tier hits are served from RAM without a store round trip, so they are shown as a number rather than a bar. Full tables: bench/RESULTS.md", 11, "#64748b")
-H = y + 26
+text(PAD, y + 8, "this project = nx-remote-cache. Memory tier off: every hit is fetched from the store (S3 here).", 11, "#94a3b8")
+text(PAD, y + 22, "Memory tier on: hot artifacts up to 4 MB are kept in RAM (NX_CACHE_MEMORY_CACHE_BYTES, 256 MB default) and served without a store round trip.", 11, "#94a3b8")
+text(PAD, y + 38, "Memory-tier hits are served from RAM without a store round trip, so they are shown as a number rather than a bar. Full tables: bench/RESULTS.md", 11, "#64748b")
+H = y + 56
 doc = f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="nx-remote-cache benchmark">\n<rect width="{W}" height="{H}" rx="14" fill="#0b1120"/>\n' + "\n".join(svg) + "\n</svg>\n"
 out.write_text(doc)
 print(f"wrote {out} ({W}x{H})")

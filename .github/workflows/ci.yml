@@ -34,6 +34,20 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
+      - name: Action scripts against a local server
+        run: |
+          cargo build --locked
+          NX_CACHE_STORE_URL=memory:/// NX_CACHE_TOKEN=ci-token PORT=3999 target/debug/nx-remote-cache &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 50); do
+            if python3 -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:3999/healthz').status == 200 else 1)" 2>/dev/null; then
+              ready=1; break
+            fi
+            sleep 0.2
+          done
+          [ "${ready:-0}" = 1 ] || { echo "server did not become ready"; exit 1; }
+          bash actions/test.sh http://127.0.0.1:3999 ci-token
 
   ui:
     name: Dashboard (typecheck, build)

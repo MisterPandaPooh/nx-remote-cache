@@ -23,7 +23,7 @@ jobs:
         with: { node-version: 24, cache: pnpm }
 
       # The same server as a generic cache for node_modules (outside Nx):
-      - uses: MisterPandaPooh/nx-remote-cache/.github/actions/cache@main
+      - uses: MisterPandaPooh/nx-remote-cache/actions/remote-cache@main
         id: deps
         with:
           server: ${{ env.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}

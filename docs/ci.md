@@ -11,17 +11,50 @@ read-only token on pull requests, read-write on `main`, a warm job after each me
 summary with the hit rate.
 
 The server is also a plain content-addressed blob store, so it works **outside Nx**. The composite
-action in [`.github/actions/cache`](../.github/actions/cache/action.yml) restores and saves any path by
+action in [`actions/remote-cache`](../actions/remote-cache/action.yml) restores and saves any path by
 key, like `actions/cache`, against your own server:
 
 ```yaml
-- uses: MisterPandaPooh/nx-remote-cache/.github/actions/cache@main
+- uses: MisterPandaPooh/nx-remote-cache/actions/remote-cache@main
   with:
     server: https://nx-cache.example.com
     token: ${{ secrets.NX_CACHE_TOKEN }}
     key: node-modules-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
     path: node_modules
 ```
+
+Two more composite actions wrap the key-value store (`/v1/kv`) for passing values between jobs
+and workflows; see [`actions/README.md`](../actions/README.md) for every input. `kv-set-values`
+stores `key=value` pairs, scoped globally, per repository (`pipeline`) or per run, with a TTL:
+
+```yaml
+- uses: MisterPandaPooh/nx-remote-cache/actions/kv-set-values@main
+  with:
+    server: https://nx-cache.example.com
+    token: ${{ secrets.NX_CACHE_TOKEN }}
+    level: run
+    ttl: 2h
+    secret: "true"
+    values: |
+      preview-url=https://pr-${{ github.event.number }}.preview.example.com
+```
+
+`kv-get-values` reads keys back as a JSON output and, with `export-env`, as environment variables:
+
+```yaml
+- id: kv
+  uses: MisterPandaPooh/nx-remote-cache/actions/kv-get-values@main
+  with:
+    server: https://nx-cache.example.com
+    token: ${{ secrets.NX_CACHE_READ_TOKEN }}
+    level: run
+    keys: preview-url
+    export-env: "true"    # KV_PREVIEW_URL for the next steps
+```
+
+Secrets are masked: `kv-set-values` with `secret: "true"` masks the values in the job log and
+the server hides them in the dashboard, and `kv-get-values` masks any value the server marks as
+a secret before it prints or exports anything.
 
 ### Link artifacts to CI runs
 

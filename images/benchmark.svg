@@ -1,204 +1,206 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1022" viewBox="0 0 1100 1022" role="img" aria-label="nx-remote-cache benchmark">
-<rect width="1100" height="1022" rx="14" fill="#0b1120"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1052" viewBox="0 0 1100 1052" role="img" aria-label="nx-remote-cache benchmark">
+<rect width="1100" height="1052" rx="14" fill="#0b1120"/>
 <text x="28" y="46" font-size="17" fill="#e2e8f0" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Throughput in requests per second (req/s), higher is better; bars are to scale within each phase</text>
 <text x="28" y="66" font-size="12" fill="#94a3b8" text-anchor="start" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Every open-source Nx cache server with a published image, in containers on one Apple M4 Pro, 32 connections, 1 000 requests per phase (400 at 4 MB)</text>
 <text x="28" y="102" font-size="14" fill="#e2e8f0" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">4 KB artifacts</text>
 <text x="28" y="126" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Object storage (same S3 bucket)</text>
 <text x="28" y="148" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT, requests per second</text>
-<text x="198" y="165" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
-<rect x="206" y="154" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="373" y="165" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 293 req/s</text>
-<text x="198" y="185" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
-<rect x="206" y="174" width="152" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
-<text x="364" y="185" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 219 req/s</text>
-<text x="198" y="205" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
-<rect x="206" y="194" width="116" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="328" y="205" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">933 req/s</text>
-<text x="198" y="225" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
-<rect x="206" y="214" width="92" height="14" rx="3" fill="#64748b" opacity="0.9"/>
-<text x="304" y="225" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">737 req/s</text>
-<text x="198" y="245" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="206" y="234" width="93" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="305" y="245" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">748 req/s</text>
+<text x="220" y="165" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier on</text>
+<rect x="228" y="154" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="395" y="165" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 293 req/s</text>
+<text x="220" y="185" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier off</text>
+<rect x="228" y="174" width="152" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="386" y="185" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 219 req/s</text>
+<text x="220" y="205" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
+<rect x="228" y="194" width="116" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="350" y="205" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">933 req/s</text>
+<text x="220" y="225" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
+<rect x="228" y="214" width="92" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="326" y="225" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">737 req/s</text>
+<text x="220" y="245" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="228" y="234" width="93" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="327" y="245" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">748 req/s</text>
 <text x="28" y="270" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit, requests per second</text>
-<text x="198" y="287" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
-<text x="206" y="287" font-size="11" fill="#7dd3fc" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">135 822 req/s, 51.6x the best store path</text>
-<text x="198" y="307" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
-<rect x="206" y="296" width="154" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
-<text x="366" y="307" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 520 req/s</text>
-<text x="198" y="327" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
-<rect x="206" y="316" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="373" y="327" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 631 req/s</text>
-<text x="198" y="347" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
-<rect x="206" y="336" width="120" height="14" rx="3" fill="#64748b" opacity="0.9"/>
-<text x="332" y="347" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 959 req/s</text>
-<text x="198" y="367" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="206" y="356" width="66" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="278" y="367" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 074 req/s</text>
+<text x="220" y="287" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier on</text>
+<text x="228" y="287" font-size="11" fill="#7dd3fc" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">135 822 req/s, 51.6x the best store path</text>
+<text x="220" y="307" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier off</text>
+<rect x="228" y="296" width="154" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="388" y="307" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 520 req/s</text>
+<text x="220" y="327" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
+<rect x="228" y="316" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="395" y="327" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 631 req/s</text>
+<text x="220" y="347" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
+<rect x="228" y="336" width="120" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="354" y="347" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 959 req/s</text>
+<text x="220" y="367" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="228" y="356" width="66" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="300" y="367" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 074 req/s</text>
 <text x="568" y="126" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Local disk (same RAM-backed tmpfs)</text>
 <text x="568" y="148" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT, requests per second</text>
-<text x="738" y="165" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
-<rect x="746" y="154" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="913" y="165" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">54 137 req/s</text>
-<text x="738" y="185" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
-<rect x="746" y="174" width="121" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
-<text x="873" y="185" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">40 568 req/s</text>
-<text x="738" y="205" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
-<rect x="746" y="194" width="145" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="897" y="205" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">48 817 req/s</text>
-<text x="738" y="225" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="746" y="214" width="13" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="765" y="225" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">4 502 req/s</text>
-<text x="738" y="245" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
-<rect x="746" y="234" width="2" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
-<text x="754" y="245" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">233 req/s</text>
+<text x="760" y="165" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project (Rust)</text>
+<rect x="768" y="154" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="935" y="165" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">54 137 req/s</text>
+<text x="760" y="185" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
+<rect x="768" y="174" width="121" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
+<text x="895" y="185" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">40 568 req/s</text>
+<text x="760" y="205" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
+<rect x="768" y="194" width="145" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="919" y="205" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">48 817 req/s</text>
+<text x="760" y="225" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="768" y="214" width="13" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="787" y="225" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">4 502 req/s</text>
+<text x="760" y="245" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
+<rect x="768" y="234" width="2" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
+<text x="776" y="245" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">233 req/s</text>
 <text x="568" y="270" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit, requests per second</text>
-<text x="738" y="287" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
-<rect x="746" y="276" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="913" y="287" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">133 935 req/s</text>
-<text x="738" y="307" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
-<rect x="746" y="296" width="42" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
-<text x="794" y="307" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">34 705 req/s</text>
-<text x="738" y="327" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
-<rect x="746" y="316" width="86" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="838" y="327" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">71 204 req/s</text>
-<text x="738" y="347" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="746" y="336" width="6" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="758" y="347" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">4 929 req/s</text>
-<text x="738" y="367" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
-<rect x="746" y="356" width="2" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
-<text x="754" y="367" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">236 req/s</text>
+<text x="760" y="287" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project (Rust)</text>
+<rect x="768" y="276" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="935" y="287" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">133 935 req/s</text>
+<text x="760" y="307" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
+<rect x="768" y="296" width="42" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
+<text x="816" y="307" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">34 705 req/s</text>
+<text x="760" y="327" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
+<rect x="768" y="316" width="86" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="860" y="327" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">71 204 req/s</text>
+<text x="760" y="347" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="768" y="336" width="6" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="780" y="347" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">4 929 req/s</text>
+<text x="760" y="367" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
+<rect x="768" y="356" width="2" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
+<text x="776" y="367" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">236 req/s</text>
 <text x="28" y="404" font-size="14" fill="#e2e8f0" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">256 KB artifacts</text>
 <text x="28" y="428" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Object storage (same S3 bucket)</text>
 <text x="28" y="450" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT, requests per second</text>
-<text x="198" y="467" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
-<rect x="206" y="456" width="152" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="364" y="467" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 050 req/s</text>
-<text x="198" y="487" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
-<rect x="206" y="476" width="161" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
-<text x="373" y="487" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 109 req/s</text>
-<text x="198" y="507" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
-<rect x="206" y="496" width="127" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="339" y="507" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">872 req/s</text>
-<text x="198" y="527" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
-<rect x="206" y="516" width="85" height="14" rx="3" fill="#64748b" opacity="0.9"/>
-<text x="297" y="527" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">588 req/s</text>
-<text x="198" y="547" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="206" y="536" width="91" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="303" y="547" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">628 req/s</text>
+<text x="220" y="467" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier on</text>
+<rect x="228" y="456" width="152" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="386" y="467" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 050 req/s</text>
+<text x="220" y="487" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier off</text>
+<rect x="228" y="476" width="161" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="395" y="487" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 109 req/s</text>
+<text x="220" y="507" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
+<rect x="228" y="496" width="127" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="361" y="507" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">872 req/s</text>
+<text x="220" y="527" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
+<rect x="228" y="516" width="85" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="319" y="527" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">588 req/s</text>
+<text x="220" y="547" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="228" y="536" width="91" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="325" y="547" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">628 req/s</text>
 <text x="28" y="572" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit, requests per second</text>
-<text x="198" y="589" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
-<text x="206" y="589" font-size="11" fill="#7dd3fc" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">45 456 req/s, 18.8x the best store path</text>
-<text x="198" y="609" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
-<rect x="206" y="598" width="134" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
-<text x="346" y="609" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 016 req/s</text>
-<text x="198" y="629" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
-<rect x="206" y="618" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="373" y="629" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 421 req/s</text>
-<text x="198" y="649" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
-<rect x="206" y="638" width="97" height="14" rx="3" fill="#64748b" opacity="0.9"/>
-<text x="309" y="649" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 462 req/s</text>
-<text x="198" y="669" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="206" y="658" width="66" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="278" y="669" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">997 req/s</text>
+<text x="220" y="589" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier on</text>
+<text x="228" y="589" font-size="11" fill="#7dd3fc" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">45 456 req/s, 18.8x the best store path</text>
+<text x="220" y="609" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier off</text>
+<rect x="228" y="598" width="134" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="368" y="609" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 016 req/s</text>
+<text x="220" y="629" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
+<rect x="228" y="618" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="395" y="629" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">2 421 req/s</text>
+<text x="220" y="649" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
+<rect x="228" y="638" width="97" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="331" y="649" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 462 req/s</text>
+<text x="220" y="669" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="228" y="658" width="66" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="300" y="669" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">997 req/s</text>
 <text x="568" y="428" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Local disk (same RAM-backed tmpfs)</text>
 <text x="568" y="450" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT, requests per second</text>
-<text x="738" y="467" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
-<rect x="746" y="456" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="913" y="467" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">22 868 req/s</text>
-<text x="738" y="487" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
-<rect x="746" y="476" width="146" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
-<text x="898" y="487" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">20 800 req/s</text>
-<text x="738" y="507" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
-<rect x="746" y="496" width="139" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="891" y="507" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">19 738 req/s</text>
-<text x="738" y="527" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="746" y="516" width="23" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="775" y="527" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">3 225 req/s</text>
-<text x="738" y="547" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
-<rect x="746" y="536" width="2" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
-<text x="754" y="547" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">119 req/s</text>
+<text x="760" y="467" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project (Rust)</text>
+<rect x="768" y="456" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="935" y="467" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">22 868 req/s</text>
+<text x="760" y="487" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
+<rect x="768" y="476" width="146" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
+<text x="920" y="487" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">20 800 req/s</text>
+<text x="760" y="507" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
+<rect x="768" y="496" width="139" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="913" y="507" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">19 738 req/s</text>
+<text x="760" y="527" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="768" y="516" width="23" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="797" y="527" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">3 225 req/s</text>
+<text x="760" y="547" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
+<rect x="768" y="536" width="2" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
+<text x="776" y="547" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">119 req/s</text>
 <text x="568" y="572" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit, requests per second</text>
-<text x="738" y="589" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
-<rect x="746" y="578" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="913" y="589" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">41 571 req/s</text>
-<text x="738" y="609" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
-<rect x="746" y="598" width="90" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
-<text x="842" y="609" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">23 206 req/s</text>
-<text x="738" y="629" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
-<rect x="746" y="618" width="134" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="886" y="629" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">34 669 req/s</text>
-<text x="738" y="649" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="746" y="638" width="16" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="768" y="649" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">4 012 req/s</text>
-<text x="738" y="669" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
-<rect x="746" y="658" width="2" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
-<text x="754" y="669" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">141 req/s</text>
+<text x="760" y="589" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project (Rust)</text>
+<rect x="768" y="578" width="161" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="935" y="589" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">41 571 req/s</text>
+<text x="760" y="609" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
+<rect x="768" y="598" width="90" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
+<text x="864" y="609" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">23 206 req/s</text>
+<text x="760" y="629" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
+<rect x="768" y="618" width="134" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="908" y="629" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">34 669 req/s</text>
+<text x="760" y="649" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="768" y="638" width="16" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="790" y="649" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">4 012 req/s</text>
+<text x="760" y="669" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
+<rect x="768" y="658" width="2" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
+<text x="776" y="669" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">141 req/s</text>
 <text x="28" y="706" font-size="14" fill="#e2e8f0" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">4 MB artifacts</text>
 <text x="28" y="730" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Object storage (same S3 bucket)</text>
 <text x="28" y="752" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT, requests per second</text>
-<text x="198" y="769" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
-<rect x="206" y="758" width="151" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="363" y="769" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">383 req/s</text>
-<text x="198" y="789" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
-<rect x="206" y="778" width="123" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
-<text x="335" y="789" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">311 req/s</text>
-<text x="198" y="809" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
-<rect x="206" y="798" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="373" y="809" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">408 req/s</text>
-<text x="198" y="829" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
-<rect x="206" y="818" width="66" height="14" rx="3" fill="#64748b" opacity="0.9"/>
-<text x="278" y="829" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">166 req/s</text>
-<text x="198" y="849" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="206" y="838" width="58" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="270" y="849" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">148 req/s</text>
+<text x="220" y="769" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier on</text>
+<rect x="228" y="758" width="151" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="385" y="769" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">383 req/s</text>
+<text x="220" y="789" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier off</text>
+<rect x="228" y="778" width="123" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="357" y="789" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">311 req/s</text>
+<text x="220" y="809" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
+<rect x="228" y="798" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="395" y="809" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">408 req/s</text>
+<text x="220" y="829" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
+<rect x="228" y="818" width="66" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="300" y="829" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">166 req/s</text>
+<text x="220" y="849" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="228" y="838" width="58" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="292" y="849" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">148 req/s</text>
 <text x="28" y="874" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit, requests per second</text>
-<text x="198" y="891" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, memory tier</text>
-<text x="206" y="891" font-size="11" fill="#7dd3fc" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">618 req/s, 0.7x the best store path</text>
-<text x="198" y="911" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache, store only</text>
-<rect x="206" y="900" width="161" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
-<text x="373" y="911" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">851 req/s</text>
-<text x="198" y="931" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
-<rect x="206" y="920" width="158" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="370" y="931" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">834 req/s</text>
-<text x="198" y="951" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
-<rect x="206" y="940" width="88" height="14" rx="3" fill="#64748b" opacity="0.9"/>
-<text x="300" y="951" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">463 req/s</text>
-<text x="198" y="971" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="206" y="960" width="42" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="254" y="971" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">224 req/s</text>
+<text x="220" y="891" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier on</text>
+<text x="228" y="891" font-size="11" fill="#7dd3fc" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">618 req/s, 0.7x the best store path</text>
+<text x="220" y="911" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project, memory tier off</text>
+<rect x="228" y="900" width="161" height="14" rx="3" fill="#6366f1" opacity="0.9"/>
+<text x="395" y="911" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">851 req/s</text>
+<text x="220" y="931" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">inconvenience-store (Go)</text>
+<rect x="228" y="920" width="158" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="392" y="931" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">834 req/s</text>
+<text x="220" y="951" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">IKatsuba (Deno)</text>
+<rect x="228" y="940" width="88" height="14" rx="3" fill="#64748b" opacity="0.9"/>
+<text x="322" y="951" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">463 req/s</text>
+<text x="220" y="971" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="228" y="960" width="42" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="276" y="971" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">224 req/s</text>
 <text x="568" y="730" font-size="12" fill="#64748b" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Local disk (same RAM-backed tmpfs)</text>
 <text x="568" y="752" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PUT, requests per second</text>
-<text x="738" y="769" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
-<rect x="746" y="758" width="144" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="896" y="769" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 439 req/s</text>
-<text x="738" y="789" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
-<rect x="746" y="778" width="94" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
-<text x="846" y="789" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">942 req/s</text>
-<text x="738" y="809" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
-<rect x="746" y="798" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="913" y="809" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 610 req/s</text>
-<text x="738" y="829" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="746" y="818" width="26" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="778" y="829" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">262 req/s</text>
-<text x="738" y="849" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
-<rect x="746" y="838" width="8" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
-<text x="760" y="849" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">78 req/s</text>
+<text x="760" y="769" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project (Rust)</text>
+<rect x="768" y="758" width="144" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="918" y="769" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 439 req/s</text>
+<text x="760" y="789" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
+<rect x="768" y="778" width="94" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
+<text x="868" y="789" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">942 req/s</text>
+<text x="760" y="809" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
+<rect x="768" y="798" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="935" y="809" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">1 610 req/s</text>
+<text x="760" y="829" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="768" y="818" width="26" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="800" y="829" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">262 req/s</text>
+<text x="760" y="849" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
+<rect x="768" y="838" width="8" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
+<text x="782" y="849" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">78 req/s</text>
 <text x="568" y="874" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="600" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">GET hit, requests per second</text>
-<text x="738" y="891" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">nx-remote-cache</text>
-<rect x="746" y="880" width="46" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
-<text x="798" y="891" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">913 req/s</text>
-<text x="738" y="911" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
-<rect x="746" y="900" width="47" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
-<text x="799" y="911" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">949 req/s</text>
-<text x="738" y="931" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
-<rect x="746" y="920" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
-<text x="913" y="931" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">3 217 req/s</text>
-<text x="738" y="951" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
-<rect x="746" y="940" width="23" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
-<text x="775" y="951" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">457 req/s</text>
-<text x="738" y="971" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
-<rect x="746" y="960" width="6" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
-<text x="758" y="971" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">111 req/s</text>
-<text x="28" y="1004" font-size="11" fill="#64748b" text-anchor="start" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Memory-tier hits are served from RAM without a store round trip, so they are shown as a number rather than a bar. Full tables: bench/RESULTS.md</text>
+<text x="760" y="891" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project (Rust)</text>
+<rect x="768" y="880" width="46" height="14" rx="3" fill="#38bdf8" opacity="0.9"/>
+<text x="820" y="891" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">913 req/s</text>
+<text x="760" y="911" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ShadiBlitz (Rust)</text>
+<rect x="768" y="900" width="47" height="14" rx="3" fill="#f59e0b" opacity="0.9"/>
+<text x="821" y="911" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">949 req/s</text>
+<text x="760" y="931" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">enxtur (Go)</text>
+<rect x="768" y="920" width="161" height="14" rx="3" fill="#10b981" opacity="0.9"/>
+<text x="935" y="931" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">3 217 req/s</text>
+<text x="760" y="951" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cacheiro (Node)</text>
+<rect x="768" y="940" width="23" height="14" rx="3" fill="#ec4899" opacity="0.9"/>
+<text x="797" y="951" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">457 req/s</text>
+<text x="760" y="971" font-size="11" fill="#cbd5e1" text-anchor="end" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">jappyjan (Node)</text>
+<rect x="768" y="960" width="6" height="14" rx="3" fill="#a78bfa" opacity="0.9"/>
+<text x="780" y="971" font-size="11" fill="#e2e8f0" text-anchor="start" font-weight="normal" font-family="ui-monospace, SF Mono, Menlo, monospace">111 req/s</text>
+<text x="28" y="1004" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">this project = nx-remote-cache. Memory tier off: every hit is fetched from the store (S3 here).</text>
+<text x="28" y="1018" font-size="11" fill="#94a3b8" text-anchor="start" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Memory tier on: hot artifacts up to 4 MB are kept in RAM (NX_CACHE_MEMORY_CACHE_BYTES, 256 MB default) and served without a store round trip.</text>
+<text x="28" y="1034" font-size="11" fill="#64748b" text-anchor="start" font-weight="normal" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Memory-tier hits are served from RAM without a store round trip, so they are shown as a number rather than a bar. Full tables: bench/RESULTS.md</text>
 </svg>

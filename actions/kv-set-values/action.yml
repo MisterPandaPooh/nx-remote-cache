@@ -1,0 +1,61 @@
+name: nx-remote-cache kv-set-values
+description: >-
+  Store one or more values in the key-value store of an nx-remote-cache server, scoped to the
+  whole cache, to this repository or to this workflow run, with an optional TTL. Secrets are
+  masked in the job log and in the server's dashboard.
+author: MisterPandaPooh
+branding:
+  icon: database
+  color: blue
+inputs:
+  server:
+    description: Base URL of the cache server, e.g. https://nx-cache.example.com
+    required: true
+  token:
+    description: Read-write bearer token (NX_CACHE_TOKEN)
+    required: true
+  level:
+    description: "Isolation: global (every job), pipeline (this repository) or run (this workflow run)"
+    default: global
+  values:
+    description: "Newline-separated key=value pairs (keys: [A-Za-z0-9_.:@-]{1,200})"
+    default: ""
+  key:
+    description: A single key (alternative to `values`)
+    default: ""
+  value:
+    description: Its value
+    default: ""
+  value-file:
+    description: Read the single value from this file instead of `value`
+    default: ""
+  ttl:
+    description: "Time to live: 30s, 10m, 2h, 7d or seconds; empty keeps the value until evicted"
+    default: ""
+  secret:
+    description: "true: mask the values in this log and show them masked in the dashboard"
+    default: "false"
+  content-type:
+    description: Content type stored with the values (application/json is validated by the server)
+    default: text/plain
+outputs:
+  count:
+    description: Number of values stored
+    value: ${{ steps.set.outputs.count }}
+runs:
+  using: composite
+  steps:
+    - id: set
+      shell: bash
+      env:
+        INPUT_SERVER: ${{ inputs.server }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_LEVEL: ${{ inputs.level }}
+        INPUT_VALUES: ${{ inputs.values }}
+        INPUT_KEY: ${{ inputs.key }}
+        INPUT_VALUE: ${{ inputs.value }}
+        INPUT_VALUE_FILE: ${{ inputs.value-file }}
+        INPUT_TTL: ${{ inputs.ttl }}
+        INPUT_SECRET: ${{ inputs.secret }}
+        INPUT_CONTENT_TYPE: ${{ inputs.content-type }}
+      run: bash "${{ github.action_path }}/kv-set.sh"
