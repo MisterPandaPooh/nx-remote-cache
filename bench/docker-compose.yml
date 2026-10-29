@@ -183,5 +183,7 @@ services:
   bench:
     image: nx-remote-cache:bench
     profiles: ["tools"]
+    # When the VM runs out of memory (a server buffering 1 GB uploads), kill that server, not the measurement.
+    oom_score_adj: -900
     entrypoint: ["sleep", "infinity"]
 

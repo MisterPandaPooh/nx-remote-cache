@@ -114,7 +114,8 @@ async fn main() -> Result<()> {
     // Warm-up: two rounds of uploads that are not measured, so connection setup and the
     // server's thread pools do not land in the PUT phase of the fastest targets.
     let warm = Arc::new(Args {
-        requests: args.concurrency * 2,
+        // Capped by the request count: warming up with 64 uploads of 1 GB would be the benchmark.
+        requests: (args.concurrency * 2).min(args.requests),
         ..(*args).clone()
     });
     run(&warm, &client, "warm-up", |c, i| {
@@ -158,9 +159,13 @@ async fn main() -> Result<()> {
     let mut hit = run(&args, &client, "GET hit", |c, i| {
         let url = format!("{}/v1/cache/{}", args.url, hash(i));
         async move {
-            let res = c.get(url).send().await?;
+            let mut res = c.get(url).send().await?;
             let status = res.status().as_u16();
-            let bytes = res.bytes().await?.len() as u64;
+            // Count the body as it streams: buffering 1 GB artifacts here is how the bench gets OOM-killed.
+            let mut bytes = 0u64;
+            while let Some(chunk) = res.chunk().await? {
+                bytes += chunk.len() as u64;
+            }
             Ok::<_, reqwest::Error>((status, bytes))
         }
     })

@@ -21,6 +21,8 @@ for i in range(1, len(sections), 2):
     rows_by_size[size] = rows
 
 def human(n):
+    if n >= 1 << 30:
+        return f"{n / (1 << 30):.0f} GB"
     return f"{n / 1024:.0f} KB" if n < 1 << 20 else f"{n / (1 << 20):.0f} MB"
 
 out = []

@@ -16,12 +16,15 @@ root = Path(__file__).resolve().parent.parent
 results = (root / "bench" / "RESULTS.md").read_text()
 out = Path(sys.argv[1]) if len(sys.argv) > 1 else root / "images" / "benchmark.svg"
 
-rows = {}  # size -> server -> phase -> req/s
+# Below 256 MB the number that matters is requests per second; from 256 MB up it is MB/s.
+HUGE = 1 << 28
+rows = {}  # size -> server -> phase -> req/s (MB/s for huge sizes)
 for size, body in zip(*[iter(re.split(r"^## Artifact size: (\d+) bytes$", results, flags=re.M)[1:])] * 2):
     for line in body.splitlines():
-        m = re.match(r"\| (.+?) \| (PUT|GET hit|GET miss) \| (\d+) \|", line)
+        m = re.match(r"\| (.+?) \| (PUT|GET hit|GET miss) \| (\d+) \| ([\d.]+) \|", line)
         if m:
-            rows.setdefault(int(size), {}).setdefault(m[1], {})[m[2]] = int(m[3])
+            value = round(float(m[4])) if int(size) >= HUGE else int(m[3])
+            rows.setdefault(int(size), {}).setdefault(m[1], {})[m[2]] = value
 
 # One colour per server, the same in every panel.
 COLORS = {
@@ -65,6 +68,8 @@ y = PAD
 
 
 def human(n):
+    if n >= 1 << 30:
+        return f"{n // (1 << 30)} GB"
     return f"{n // 1024} KB" if n < 1 << 20 else f"{n // (1 << 20)} MB"
 
 
@@ -77,8 +82,8 @@ def text(x, yy, s, size=12, fill="#94a3b8", anchor="start", weight="normal", mon
     svg.append(f'<text x="{x:.1f}" y="{yy:.1f}" font-size="{size}" fill="{fill}" text-anchor="{anchor}" font-weight="{weight}" font-family="{fam}">{s}</text>')
 
 
-text(PAD, y + 18, "Throughput in requests per second (req/s), higher is better", 18, "#e2e8f0", weight="600")
-text(PAD, y + 40, "Every open-source Nx cache server with a published image, in containers on one Apple M4 Pro, 32 connections, 1 000 requests per phase (400 at 4 MB).", 12)
+text(PAD, y + 18, "Throughput, higher is better: requests per second (req/s), megabytes per second (MB/s) for 1 GB artifacts", 18, "#e2e8f0", weight="600")
+text(PAD, y + 40, "Every open-source Nx cache server with a published image, in containers on one Apple M4 Pro. 32 connections, 1 000 requests per phase (400 at 4 MB; 4 requests on 2 connections at 1 GB).", 12)
 text(PAD, y + 57, "In each panel every bar starts at 0 on one linear scale: twice the length is twice the throughput. Full tables and method: bench/RESULTS.md", 12)
 y += 80
 
@@ -113,7 +118,9 @@ for arena, servers in ARENAS:
                 w = max(1.5, BAR_MAX * v / peak)
                 text(bx - 8, yy + ROW_H / 2 + 4, label, 11, "#e2e8f0" if ours else "#94a3b8", anchor="end", weight="600" if ours else "normal")
                 svg.append(f'<rect x="{bx}" y="{yy + (ROW_H - BAR_H) / 2:.1f}" width="{w:.1f}" height="{BAR_H}" rx="2" fill="{COLORS[label]}" opacity="{1 if ours else 0.85}"/>')
-                text(bx + w + 6, yy + ROW_H / 2 + 4, f"{fmt(v)} req/s", 10.5, "#e2e8f0" if ours else "#94a3b8", mono=True)
+                unit = "MB/s" if size >= HUGE else "req/s"
+                shown = "failed" if v == 0 else f"{fmt(v)} {unit}"
+                text(bx + w + 6, yy + ROW_H / 2 + 4, shown, 10.5, "#e2e8f0" if ours else ("#f87171" if v == 0 else "#94a3b8"), mono=True)
                 yy += ROW_H
         y = panel_top + panel_h + 12
     y += 18

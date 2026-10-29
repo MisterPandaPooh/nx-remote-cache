@@ -2,7 +2,7 @@
 
 Generated 2026-10-29T08:34:38Z on arm64 · Apple M4 Pro · Docker 29.2.0
 
-Every server runs in its own container; `nx-cache-bench` runs in a container on the same Docker network with 32 concurrent connections, 1000 requests per phase (400 from 1 MB up), after an unmeasured warm-up of 64 uploads.
+Every server runs in its own container; `nx-cache-bench` runs in a container on the same Docker network with 32 concurrent connections, 1000 requests per phase (400 from 1 MB up, 4 with 2 connections at 1 GB), after an unmeasured warm-up of at most 64 uploads.
 Phases: PUT (unique hashes), GET hit (same hashes), GET miss (unknown hashes). Latencies are end-to-end as the Nx CLI sees them.
 
 ## Artifact size: 4096 bytes
@@ -110,3 +110,37 @@ Phases: PUT (unique hashes), GET hit (same hashes), GET miss (unknown hashes). L
 | jappyjan/nx-cache-server (Node) on local disk | GET hit | 111 | 464.5 | 289.71 | 308.37 | 319.84 | 0 |
 | jappyjan/nx-cache-server (Node) on local disk | GET miss | 203 | 0.0 | 150.23 | 157.25 | 269.15 | 0 |
 
+## Artifact size: 1073741824 bytes
+
+| Server | Phase | req/s | MB/s | p50 ms | p90 ms | p99 ms | failures |
+|---|---|---:|---:|---:|---:|---:|---:|
+| nx-remote-cache (Rust) on S3, memory tier off | PUT | 0 | 410.7 | 5400.23 | 5408.24 | 5408.24 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET hit | 3 | 3324.2 | 724.83 | 728.46 | 728.46 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier off | GET miss | 1377 | 0.0 | 1.79 | 1.81 | 1.81 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | PUT | 0 | 426.0 | 5097.08 | 5348.29 | 5348.29 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET hit | 3 | 3365.2 | 612.80 | 679.07 | 679.07 | 0 |
+| nx-remote-cache (Rust) on S3, memory tier on | GET miss | 1650 | 0.0 | 1.46 | 1.46 | 1.46 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | PUT | 1 | 651.6 | 3245.13 | 3349.69 | 3349.69 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | GET hit | 3 | 3684.0 | 650.10 | 653.89 | 653.89 | 0 |
+| IKatsuba/nx-cache-server (Deno) on S3 | GET miss | 503 | 0.0 | 4.33 | 4.34 | 4.34 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | PUT | 0 | 493.7 | 3820.02 | 5237.29 | 5237.29 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET hit | 3 | 2888.2 | 859.97 | 890.59 | 890.59 | 0 |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | GET miss | 694 | 0.0 | 3.18 | 3.30 | 3.30 | 0 |
+| rerodrigues/cacheiro (Node) on S3 | PUT | 0 | 0.0 | 0.00 | 0.00 | 0.00 | 4 |
+| rerodrigues/cacheiro (Node) on S3 | GET hit | 0 | 0.0 | 0.00 | 0.00 | 0.00 | 4 |
+| rerodrigues/cacheiro (Node) on S3 | GET miss | 596 | 0.0 | 3.32 | 3.51 | 3.51 | 0 |
+| nx-remote-cache (Rust) on local disk | PUT | 7 | 7768.7 | 275.66 | 297.90 | 297.90 | 0 |
+| nx-remote-cache (Rust) on local disk | GET hit | 9 | 9945.9 | 218.85 | 219.19 | 219.19 | 0 |
+| nx-remote-cache (Rust) on local disk | GET miss | 9051 | 0.0 | 0.19 | 0.22 | 0.22 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | PUT | 11 | 11409.9 | 188.83 | 190.31 | 190.31 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | GET hit | 27 | 28815.8 | 71.72 | 78.56 | 78.56 | 0 |
+| enxtur/nx-caching-server (Go) on local disk | GET miss | 12448 | 0.0 | 0.13 | 0.14 | 0.14 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | PUT | 7 | 7855.9 | 276.20 | 277.87 | 277.87 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | GET hit | 4 | 4168.8 | 512.54 | 518.50 | 518.50 | 0 |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | GET miss | 8317 | 0.0 | 0.23 | 0.25 | 0.25 | 0 |
+| rerodrigues/cacheiro (Node) on local disk | PUT | 0 | 0.0 | 0.00 | 0.00 | 0.00 | 4 |
+| rerodrigues/cacheiro (Node) on local disk | GET hit | 0 | 0.0 | 0.00 | 0.00 | 0.00 | 4 |
+| rerodrigues/cacheiro (Node) on local disk | GET miss | 2678 | 0.0 | 0.68 | 1.00 | 1.00 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | PUT | 2 | 2454.0 | 890.44 | 890.96 | 890.96 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | GET hit | 2 | 1793.9 | 1210.55 | 1210.97 | 1210.97 | 0 |
+| jappyjan/nx-cache-server (Node) on local disk | GET miss | 1312 | 0.0 | 1.70 | 2.20 | 2.20 | 0 |

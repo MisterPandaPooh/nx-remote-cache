@@ -3,7 +3,8 @@
 Every open-source self-hosted Nx cache server with a published image, each on every store it
 supports, measured with the included load generator. Every server runs in a container on the
 same machine; the load generator runs in a container on the same Docker network, 32 concurrent
-connections, 1,000 requests per phase (400 for 4 MB artifacts) after an unmeasured warm-up.
+connections, 1,000 requests per phase (400 for 4 MB artifacts; 4 requests on 2 connections for
+1 GB artifacts, where the figure that matters is MB/s) after an unmeasured warm-up.
 Two arenas: the same S3 bucket (S3Mock, path-style; servers whose SDK insists on
 virtual-hosted-style addressing go through a one-hop nginx rewrite) and the same RAM-backed
 local disk. Full tables, method and how to rerun: [`bench/RESULTS.md`](../bench/RESULTS.md).
@@ -69,6 +70,21 @@ local disk. Full tables, method and how to rerun: [`bench/RESULTS.md`](../bench/
 | ShadiBlitz/nx-cache-server (Rust) on local disk | 942 | 949 (3980 MB/s) | 0.82 / 1.35 ms |
 | rerodrigues/cacheiro (Node) on local disk | 262 | 457 (1918 MB/s) | 1.88 / 4.19 ms |
 | jappyjan/nx-cache-server (Node) on local disk | 78 | 111 (464 MB/s) | 150.23 / 269.15 ms |
+
+**1 GB artifacts** · PUT req/s · GET hit req/s (MB/s) · GET miss p50 / p99
+
+| Server | PUT | GET hit | GET miss |
+|---|---:|---:|---:|
+| nx-remote-cache (Rust) on S3, memory tier off | 0 | 3 (3324 MB/s) | 1.79 / 1.81 ms |
+| nx-remote-cache (Rust) on S3, memory tier on | 0 | 3 (3365 MB/s) | 1.46 / 1.46 ms |
+| IKatsuba/nx-cache-server (Deno) on S3 | 1 | 3 (3684 MB/s) | 4.33 / 4.34 ms |
+| the-inconvenience-store/nx-remote-cache (Go) on S3 | 0 | 3 (2888 MB/s) | 3.18 / 3.30 ms |
+| rerodrigues/cacheiro (Node) on S3 | 0 | 0 (0 MB/s) | 3.32 / 3.51 ms |
+| nx-remote-cache (Rust) on local disk | 7 | 9 (9946 MB/s) | 0.19 / 0.22 ms |
+| enxtur/nx-caching-server (Go) on local disk | 11 | 27 (28816 MB/s) | 0.13 / 0.14 ms |
+| ShadiBlitz/nx-cache-server (Rust) on local disk | 7 | 4 (4169 MB/s) | 0.23 / 0.25 ms |
+| rerodrigues/cacheiro (Node) on local disk | 0 | 0 (0 MB/s) | 0.68 / 1.00 ms |
+| jappyjan/nx-cache-server (Node) on local disk | 2 | 2 (1794 MB/s) | 1.70 / 2.20 ms |
 <!-- BENCH:END -->
 
 Reading the tables, honestly:
@@ -89,6 +105,17 @@ is within run-to-run variance for the other sizes. Both are fixable in the store
 on the list. The memory tier at 4 MB is slower than the plain store path: 400 artifacts of 4 MB
 cycle through a 256 MB budget, so every read fills and evicts for nothing; the tier should skip
 fills when the working set exceeds its budget.
+
+**1 GB artifacts.** Memory is the first thing a 1 GB artifact tests: the Node server `cacheiro`
+buffers uploads and failed every one of them on both stores, and the first two attempts at this
+tier ran the Docker VM out of memory until the load generator streamed its downloads. On S3Mock,
+uploads reach 411 MB/s here against 494 MB/s for the Go server and 652 MB/s for Deno: both send
+one `PutObject`, while nx-remote-cache streams 8 MB multipart parts that S3Mock then copies into
+the final object on completion, a cost real S3 does not bill the same way. Downloads: 3 324 MB/s
+here, 3 684 MB/s for Deno, 2 888 MB/s for the Go server, all within a few percent of the bench
+client's own limit. On local disk `enxtur` wins both ways at this size (11 410 against 7 769 MB/s
+up, 28 816 against 9 946 MB/s down, `sendfile` again); nx-remote-cache and ShadiBlitz are level
+on uploads, nx-remote-cache 2.4× ahead on downloads.
 
 **Local disk.** nx-remote-cache is first on uploads at 4 KB and 256 KB (1.1 to 1.3× the Go and
 Rust competitors, 7 to 12× cacheiro) and on small and medium hits (1.2 to 1.9× the Go server,

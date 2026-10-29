@@ -10,8 +10,13 @@ BENCH_BIN="${BENCH:-../target/release/nx-cache-bench}"
 REQUESTS="${REQUESTS:-1000}"
 # Artifacts of 1 MB and more use fewer requests so no store spills out of RAM mid-phase.
 BIG_REQUESTS="${BIG_REQUESTS:-400}"
+# Artifacts of 256 MB and more: a handful of requests, 2 at a time; the local-disk servers run one
+# at a time with an empty RAM-backed disk (4 × 1 GB), the others are stopped meanwhile.
+HUGE_REQUESTS="${HUGE_REQUESTS:-4}"
+HUGE_CONC="${HUGE_CONC:-2}"
+FS_TARGETS="rust-fs go-fs shadi-fs cacheiro-fs node-fs"
 CONC="${CONC:-32}"
-SIZES="${SIZES:-4096 262144 4194304}"
+SIZES="${SIZES:-4096 262144 4194304 1073741824}"
 OUT="${OUT:-RESULTS.md}"
 # ONLY="rust-fs go-fs" restricts the run to these target ids (space-separated).
 ONLY="${ONLY:-}"
@@ -68,13 +73,14 @@ fi
   echo "Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) on $(uname -m) · $(sysctl -n machdep.cpu.brand_string 2>/dev/null || grep -m1 'model name' /proc/cpuinfo | cut -d: -f2) · Docker $(docker version --format '{{.Server.Version}}')"
   echo
   if [[ "$IN_DOCKER" == "1" ]]; then where="in a container on the same Docker network"; else where="on the host"; fi
-  echo "Every server runs in its own container; \`nx-cache-bench\` runs $where with $CONC concurrent connections, $REQUESTS requests per phase ($BIG_REQUESTS from 1 MB up), after an unmeasured warm-up of $((CONC * 2)) uploads."
+  echo "Every server runs in its own container; \`nx-cache-bench\` runs $where with $CONC concurrent connections, $REQUESTS requests per phase ($BIG_REQUESTS from 1 MB up, $HUGE_REQUESTS with $HUGE_CONC connections from 256 MB up), after an unmeasured warm-up of at most $((CONC * 2)) uploads."
   echo "Phases: PUT (unique hashes), GET hit (same hashes), GET miss (unknown hashes). Latencies are end-to-end as the Nx CLI sees them."
   echo
 } > "$OUT"
 
 for size in $SIZES; do
-  if (( size >= 1 << 20 )); then n="$BIG_REQUESTS"; else n="$REQUESTS"; fi
+  conc="$CONC"
+  if (( size >= 1 << 28 )); then n="$HUGE_REQUESTS"; conc="$HUGE_CONC"; elif (( size >= 1 << 20 )); then n="$BIG_REQUESTS"; else n="$REQUESTS"; fi
   {
     echo "## Artifact size: $size bytes"
     echo
@@ -87,10 +93,14 @@ for size in $SIZES; do
     if [[ "$id" == *s3* ]]; then
       # Fresh, empty S3Mock for every S3 target: a filling store would penalise whoever runs last.
       docker compose rm -sf s3 >/dev/null 2>&1; docker compose up -d --wait s3 >/dev/null 2>&1
+    elif (( size >= 1 << 28 )); then
+      # Huge artifacts on RAM-backed disks: only the measured server keeps a disk, the others are
+      # stopped so their gigabytes do not sit in the VM's memory meanwhile.
+      docker compose rm -sf $FS_TARGETS >/dev/null 2>&1; docker compose up -d --wait "$id" >/dev/null 2>&1
     fi
     if ! wait_ready "$url"; then echo "| $label | (not ready, skipped) | | | | | | |" >> "$OUT"; continue; fi
     echo ">> $label · $size bytes"
-    bench --url "$url" --token bench --requests "$n" --concurrency "$CONC" --size "$size" | tail -n 3 | tee /dev/stderr | \
+    bench --url "$url" --token bench --requests "$n" --concurrency "$conc" --size "$size" | tail -n 3 | tee /dev/stderr | \
       LABEL="$label" python3 ./parse.py >> "$OUT"
   done
   echo >> "$OUT"
