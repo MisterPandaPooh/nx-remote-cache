@@ -1053,14 +1053,14 @@ async fn stats_are_shared_between_two_servers_over_redis() {
             .unwrap(),
     )
     .unwrap();
-    let kinds: Vec<&str> = events["events"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|e| e["kind"].as_str().unwrap())
-        .collect();
-    assert_eq!(kinds, ["miss", "hit", "put"]);
-    assert_eq!(events["events"][2]["hash"], "c0ffee");
+    // Each pod pushes its batch every 100 ms, so across pods the stream is batch order, not
+    // strict time order: compare as a set.
+    let list = events["events"].as_array().unwrap();
+    let mut kinds: Vec<&str> = list.iter().map(|e| e["kind"].as_str().unwrap()).collect();
+    kinds.sort_unstable();
+    assert_eq!(kinds, ["hit", "miss", "put"]);
+    let put = list.iter().find(|e| e["kind"] == "put").unwrap();
+    assert_eq!(put["hash"], "c0ffee");
 }
 
 #[tokio::test]

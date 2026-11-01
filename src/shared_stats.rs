@@ -3,8 +3,9 @@
 //!
 //! The request path never talks to Redis: every pod keeps its own atomics (`stats.rs`) and a
 //! background task pushes the deltas every `NX_CACHE_STATS_FLUSH_MS` in one pipeline, whatever
-//! the traffic. Events go to a capped stream in batches, and each pod relays that stream to its
-//! SSE clients, so the live view shows the whole cluster. When Redis is unreachable the dashboard
+//! the traffic. Events go to a capped stream in batches (across pods the feed is in batch
+//! order, within 100 ms of time order), and each pod relays that stream to its SSE clients, so
+//! the live view shows the whole cluster. When Redis is unreachable the dashboard
 //! falls back to this pod's own numbers and the cache keeps serving.
 //!
 //! Keys under `<prefix>:`: `counters` and `hist:<route>` (hashes), `tl:<rfc3339>` (one hash per
