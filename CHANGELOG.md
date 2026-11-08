@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-08)
 
 - Shared dashboard across replicas: with the key-value store on Redis, counters, latency, the
   24 h timeline and the event feed are the sum over every pod, the top bar shows how many pods are

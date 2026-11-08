@@ -20,7 +20,7 @@ Verify a signature (no key to distribute, the identity is the workflow itself; a
 from the Actions UI signs as `@refs/heads/main`, a tag push as `@refs/tags/vX.Y.Z`):
 
 ```bash
-cosign verify ghcr.io/misterpandapooh/nx-remote-cache:0.1.0 \
+cosign verify ghcr.io/misterpandapooh/nx-remote-cache:0.2.0 \
   --certificate-identity-regexp '^https://github.com/MisterPandaPooh/nx-remote-cache/\.github/workflows/release\.yml@refs/(tags/v[0-9]|heads/main)' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```

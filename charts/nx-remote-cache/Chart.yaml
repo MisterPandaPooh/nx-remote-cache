@@ -3,8 +3,8 @@ name: nx-remote-cache
 description: Free, self-hosted remote cache server for Nx. Azure Blob, S3, GCS or a volume behind the Nx self-hosted cache API, with a built-in dashboard.
 type: application
 # version and appVersion are bumped together by the release workflow (one chart version per server version).
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "0.2.0"
 kubeVersion: ">=1.25.0-0"
 home: https://misterpandapooh.github.io/nx-remote-cache/
 icon: https://raw.githubusercontent.com/MisterPandaPooh/nx-remote-cache/main/images/logo.svg
@@ -34,4 +34,4 @@ annotations:
   licenses: MIT
   images: |
     - name: nx-remote-cache
-      image: ghcr.io/misterpandapooh/nx-remote-cache:0.1.0
+      image: ghcr.io/misterpandapooh/nx-remote-cache:0.2.0

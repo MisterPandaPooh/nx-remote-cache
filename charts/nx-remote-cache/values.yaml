@@ -204,7 +204,7 @@ image:
   registry: ghcr.io
   repository: misterpandapooh/nx-remote-cache
   ## Bumped by the release workflow. Docker Hub mirror: registry docker.io, same repository.
-  tag: "0.1.0"
+  tag: "0.2.0"
   digest: ""
   pullPolicy: IfNotPresent
   pullSecrets: []

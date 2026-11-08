@@ -26,7 +26,7 @@ enough); open when login is disabled. `?token=` is accepted on `/api/v1/events/s
 
 ```json
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "uptime_seconds": 12345,
   "started_at": "2026-10-29T10:00:00Z",
   "store": { "kind": "azure", "location": "az://nx-cache/" },

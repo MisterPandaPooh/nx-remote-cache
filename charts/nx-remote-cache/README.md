@@ -16,7 +16,7 @@ helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cach
 ```
 
 Tokens are generated on first install and kept across upgrades; the install notes print how to
-read them back. Pin a version with `--version 0.1.0`.
+read them back. Pin a version with `--version 0.2.0`.
 
 ## Stores
 

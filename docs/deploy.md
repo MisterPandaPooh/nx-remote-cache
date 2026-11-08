@@ -10,7 +10,7 @@ version. Tokens are generated on first install and kept across upgrades (or brin
 with `auth.existingSecret`).
 
 ```bash
-helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cache --version 0.1.0 \
+helm install nx-remote-cache oci://ghcr.io/misterpandapooh/charts/nx-remote-cache --version 0.2.0 \
   --namespace nx-remote-cache --create-namespace \
   --set store.type=azure --set store.azure.accountName=mystorageaccount \
   --set store.azure.workloadIdentity.clientId=<managed identity client id> \

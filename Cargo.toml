@@ -1,6 +1,6 @@
 [package]
 name = "nx-remote-cache"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.85"
 description = "Free, self-hosted remote cache server for Nx: Azure Blob, S3, GCS or local disk behind the Nx self-hosted cache API"
