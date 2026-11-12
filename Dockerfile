@@ -9,7 +9,7 @@ RUN pnpm install --frozen-lockfile
 COPY ui/ ./
 RUN pnpm build
 
-FROM rust:1.93-alpine AS build
+FROM rust:1.99-alpine AS build
 RUN apk add --no-cache musl-dev build-base ca-certificates
 WORKDIR /src
 COPY Cargo.toml Cargo.lock build.rs rustfmt.toml ./
@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=cargo-registry-${TARGETPLATFORM},target=/usr/local/car
 
 # Load generator, same static build, on alpine so the benchmark can `exec` into a long-lived
 # container (docker build --target bench -t nx-remote-cache:bench .)
-FROM alpine:3.21 AS bench
+FROM alpine:3.24 AS bench
 RUN apk add --no-cache ca-certificates
 COPY --from=build /nx-cache-bench /usr/local/bin/nx-cache-bench
 USER 65534:65534
